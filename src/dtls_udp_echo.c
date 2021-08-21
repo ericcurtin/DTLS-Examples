@@ -58,6 +58,13 @@
 #define BUFFER_SIZE          (1<<16)
 #define COOKIE_SECRET_LENGTH 16
 
+#define ericf(x, ...) { \
+  struct timeval tp; \
+  gettimeofday(&tp, NULL); \
+  const double ms = tp.tv_sec + (tp.tv_usec / 1000000.0); \
+  printf("%s:%d %f " x, __FILE__, __LINE__, ms, ##__VA_ARGS__); \
+} while (0)
+
 int verbose = 0;
 int veryverbose = 0;
 unsigned char cookie_secret[COOKIE_SECRET_LENGTH];
@@ -146,13 +153,13 @@ int handle_socket_error() {
 			/* Interrupted system call.
 			 * Just ignore.
 			 */
-			printf("Interrupted system call!\n");
+			ericf("Interrupted system call!\n");
 			return 1;
 		case EBADF:
 			/* Invalid socket.
 			 * Must close connection.
 			 */
-			printf("Invalid socket!\n");
+			ericf("Invalid socket!\n");
 			return 0;
 			break;
 #ifdef EHOSTDOWN
@@ -161,7 +168,7 @@ int handle_socket_error() {
 			 * Just ignore, might be an attacker
 			 * sending fake ICMP messages.
 			 */
-			printf("Host is down!\n");
+			ericf("Host is down!\n");
 			return 1;
 #endif
 #ifdef ECONNRESET
@@ -170,14 +177,14 @@ int handle_socket_error() {
 			 * Just ignore, might be an attacker
 			 * sending fake ICMP messages.
 			 */
-			printf("Connection reset by peer!\n");
+			ericf("Connection reset by peer!\n");
 			return 1;
 #endif
 		case ENOMEM:
 			/* Out of memory.
 			 * Must close connection.
 			 */
-			printf("Out of memory!\n");
+			ericf("Out of memory!\n");
 			return 0;
 			break;
 		case EACCES:
@@ -186,12 +193,12 @@ int handle_socket_error() {
 			 * by some firewall policy. Try again
 			 * and hope for the best.
 			 */
-			printf("Permission denied!\n");
+			ericf("Permission denied!\n");
 			return 1;
 			break;
 		default:
 			/* Something unexpected happened */
-			printf("Unexpected error! (errno = %d)\n", errno);
+			ericf("Unexpected error! (errno = %d)\n", errno);
 			return 0;
 			break;
 	}
@@ -213,7 +220,7 @@ int generate_cookie(SSL *ssl, unsigned char *cookie, unsigned int *cookie_len)
 		{
 		if (!RAND_bytes(cookie_secret, COOKIE_SECRET_LENGTH))
 			{
-			printf("error setting random cookie secret\n");
+			ericf("error setting random cookie secret\n");
 			return 0;
 			}
 		cookie_initialized = 1;
@@ -240,7 +247,7 @@ int generate_cookie(SSL *ssl, unsigned char *cookie, unsigned int *cookie_len)
 
 	if (buffer == NULL)
 		{
-		printf("out of memory\n");
+		ericf("out of memory\n");
 		return 0;
 		}
 
@@ -312,7 +319,7 @@ int verify_cookie(SSL *ssl, const unsigned char *cookie, unsigned int cookie_len
 
 	if (buffer == NULL)
 		{
-		printf("out of memory\n");
+		ericf("out of memory\n");
 		return 0;
 		}
 
@@ -436,7 +443,7 @@ void* connection_handle(void *info) {
 	while (ret == 0);
 	if (ret < 0) {
 		perror("SSL_accept");
-		printf("%s\n", ERR_error_string(ERR_get_error(), buf));
+		ericf("%s\n", ERR_error_string(ERR_get_error(), buf));
 		goto cleanup;
 	}
 
@@ -447,12 +454,12 @@ void* connection_handle(void *info) {
 
 	if (verbose) {
 		if (pinfo->client_addr.ss.ss_family == AF_INET) {
-			printf ("\nThread %lx: accepted connection from %s:%d\n",
+			ericf ("\nThread %lx: accepted connection from %s:%d\n",
 					id_function(),
 					inet_ntop(AF_INET, &pinfo->client_addr.s4.sin_addr, addrbuf, INET6_ADDRSTRLEN),
 					ntohs(pinfo->client_addr.s4.sin_port));
 		} else {
-			printf ("\nThread %lx: accepted connection from %s:%d\n",
+			ericf ("\nThread %lx: accepted connection from %s:%d\n",
 					id_function(),
 					inet_ntop(AF_INET6, &pinfo->client_addr.s6.sin6_addr, addrbuf, INET6_ADDRSTRLEN),
 					ntohs(pinfo->client_addr.s6.sin6_port));
@@ -460,11 +467,11 @@ void* connection_handle(void *info) {
 	}
 
 	if (veryverbose && SSL_get_peer_certificate(ssl)) {
-		printf ("------------------------------------------------------------\n");
+		ericf ("------------------------------------------------------------\n");
 		X509_NAME_print_ex_fp(stdout, X509_get_subject_name(SSL_get_peer_certificate(ssl)),
 							  1, XN_FLAG_MULTILINE);
-		printf("\n\n Cipher: %s", SSL_CIPHER_get_name(SSL_get_current_cipher(ssl)));
-		printf ("\n------------------------------------------------------------\n\n");
+		ericf("\n\n Cipher: %s", SSL_CIPHER_get_name(SSL_get_current_cipher(ssl)));
+		ericf ("\n------------------------------------------------------------\n\n");
 	}
 
 	while (!(SSL_get_shutdown(ssl) & SSL_RECEIVED_SHUTDOWN) && num_timeouts < max_timeouts) {
@@ -476,7 +483,7 @@ void* connection_handle(void *info) {
 			switch (SSL_get_error(ssl, len)) {
 				case SSL_ERROR_NONE:
 					if (verbose) {
-						printf("Thread %lx: read %d bytes\n", id_function(), (int) len);
+						ericf("Thread %lx: read %d bytes\n", id_function(), (int) len);
 					}
 					reading = 0;
 					break;
@@ -492,17 +499,17 @@ void* connection_handle(void *info) {
 					reading = 0;
 					break;
 				case SSL_ERROR_SYSCALL:
-					printf("Socket read error: ");
+					ericf("Socket read error: ");
 					if (!handle_socket_error()) goto cleanup;
 					reading = 0;
 					break;
 				case SSL_ERROR_SSL:
-					printf("SSL read error: ");
-					printf("%s (%d)\n", ERR_error_string(ERR_get_error(), buf), SSL_get_error(ssl, len));
+					ericf("SSL read error: ");
+					ericf("%s (%d)\n", ERR_error_string(ERR_get_error(), buf), SSL_get_error(ssl, len));
 					goto cleanup;
 					break;
 				default:
-					printf("Unexpected error while reading!\n");
+					ericf("Unexpected error while reading!\n");
 					goto cleanup;
 					break;
 			}
@@ -514,7 +521,7 @@ void* connection_handle(void *info) {
 			switch (SSL_get_error(ssl, len)) {
 				case SSL_ERROR_NONE:
 					if (verbose) {
-						printf("Thread %lx: wrote %d bytes\n", id_function(), (int) len);
+						ericf("Thread %lx: wrote %d bytes\n", id_function(), (int) len);
 					}
 					break;
 				case SSL_ERROR_WANT_WRITE:
@@ -526,17 +533,17 @@ void* connection_handle(void *info) {
 					/* continue with reading */
 					break;
 				case SSL_ERROR_SYSCALL:
-					printf("Socket write error: ");
+					ericf("Socket write error: ");
 					if (!handle_socket_error()) goto cleanup;
 					//reading = 0;
 					break;
 				case SSL_ERROR_SSL:
-					printf("SSL write error: ");
-					printf("%s (%d)\n", ERR_error_string(ERR_get_error(), buf), SSL_get_error(ssl, len));
+					ericf("SSL write error: ");
+					ericf("%s (%d)\n", ERR_error_string(ERR_get_error(), buf), SSL_get_error(ssl, len));
 					goto cleanup;
 					break;
 				default:
-					printf("Unexpected error while writing!\n");
+					ericf("Unexpected error while writing!\n");
 					goto cleanup;
 					break;
 			}
@@ -554,7 +561,7 @@ cleanup:
 	free(info);
 	SSL_free(ssl);
 	if (verbose)
-		printf("Thread %lx: done, connection closed.\n", id_function());
+		ericf("Thread %lx: done, connection closed.\n", id_function());
 #if WIN32
 	ExitThread(0);
 #else
@@ -620,13 +627,13 @@ void start_server(int port, char *local_address) {
 	SSL_CTX_set_session_cache_mode(ctx, SSL_SESS_CACHE_OFF);
 
 	if (!SSL_CTX_use_certificate_file(ctx, "certs/server-cert.pem", SSL_FILETYPE_PEM))
-		printf("\nERROR: no certificate found!");
+		ericf("\nERROR: no certificate found!");
 
 	if (!SSL_CTX_use_PrivateKey_file(ctx, "certs/server-key.pem", SSL_FILETYPE_PEM))
-		printf("\nERROR: no private key found!");
+		ericf("\nERROR: no private key found!");
 
 	if (!SSL_CTX_check_private_key (ctx))
-		printf("\nERROR: invalid private key!");
+		ericf("\nERROR: invalid private key!");
 
 	/* Client has to authenticate */
 	SSL_CTX_set_verify(ctx, SSL_VERIFY_PEER | SSL_VERIFY_CLIENT_ONCE, dtls_verify_callback);
@@ -791,13 +798,13 @@ void start_client(char *remote_address, char *local_address, int port, int lengt
 	//SSL_CTX_set_cipher_list(ctx, "eNULL:!MD5");
 
 	if (!SSL_CTX_use_certificate_file(ctx, "certs/client-cert.pem", SSL_FILETYPE_PEM))
-		printf("\nERROR: no certificate found!");
+		ericf("\nERROR: no certificate found!");
 
 	if (!SSL_CTX_use_PrivateKey_file(ctx, "certs/client-key.pem", SSL_FILETYPE_PEM))
-		printf("\nERROR: no private key found!");
+		ericf("\nERROR: no private key found!");
 
 	if (!SSL_CTX_check_private_key (ctx))
-		printf("\nERROR: invalid private key!");
+		ericf("\nERROR: invalid private key!");
 
 	SSL_CTX_set_verify_depth (ctx, 2);
 	SSL_CTX_set_read_ahead(ctx, 1);
@@ -860,20 +867,20 @@ void start_client(char *remote_address, char *local_address, int port, int lengt
 
 	if (verbose) {
 		if (remote_addr.ss.ss_family == AF_INET) {
-			printf ("\nConnected to %s\n",
+			ericf ("\nConnected to %s\n",
 					 inet_ntop(AF_INET, &remote_addr.s4.sin_addr, addrbuf, INET6_ADDRSTRLEN));
 		} else {
-			printf ("\nConnected to %s\n",
+			ericf ("\nConnected to %s\n",
 					 inet_ntop(AF_INET6, &remote_addr.s6.sin6_addr, addrbuf, INET6_ADDRSTRLEN));
 		}
 	}
 
 	if (veryverbose && SSL_get_peer_certificate(ssl)) {
-		printf ("------------------------------------------------------------\n");
+		ericf ("------------------------------------------------------------\n");
 		X509_NAME_print_ex_fp(stdout, X509_get_subject_name(SSL_get_peer_certificate(ssl)),
 							  1, XN_FLAG_MULTILINE);
-		printf("\n\n Cipher: %s", SSL_CIPHER_get_name(SSL_get_current_cipher(ssl)));
-		printf ("\n------------------------------------------------------------\n\n");
+		ericf("\n\n Cipher: %s", SSL_CIPHER_get_name(SSL_get_current_cipher(ssl)));
+		ericf ("\n------------------------------------------------------------\n\n");
 	}
 
 	while (!(SSL_get_shutdown(ssl) & SSL_RECEIVED_SHUTDOWN)) {
@@ -884,7 +891,7 @@ void start_client(char *remote_address, char *local_address, int port, int lengt
 			switch (SSL_get_error(ssl, len)) {
 				case SSL_ERROR_NONE:
 					if (verbose) {
-						printf("wrote %d bytes\n", (int) len);
+						ericf("wrote %d bytes\n", (int) len);
 					}
 					messagenumber--;
 					break;
@@ -895,17 +902,17 @@ void start_client(char *remote_address, char *local_address, int port, int lengt
 					/* continue with reading */
 					break;
 				case SSL_ERROR_SYSCALL:
-					printf("Socket write error: ");
+					ericf("Socket write error: ");
 					if (!handle_socket_error()) exit(1);
 					//reading = 0;
 					break;
 				case SSL_ERROR_SSL:
-					printf("SSL write error: ");
-					printf("%s (%d)\n", ERR_error_string(ERR_get_error(), buf), SSL_get_error(ssl, len));
+					ericf("SSL write error: ");
+					ericf("%s (%d)\n", ERR_error_string(ERR_get_error(), buf), SSL_get_error(ssl, len));
 					exit(1);
 					break;
 				default:
-					printf("Unexpected error while writing!\n");
+					ericf("Unexpected error while writing!\n");
 					exit(1);
 					break;
 			}
@@ -928,14 +935,14 @@ void start_client(char *remote_address, char *local_address, int port, int lengt
 			switch (SSL_get_error(ssl, len)) {
 				case SSL_ERROR_NONE:
 					if (verbose) {
-						printf("read %d bytes\n", (int) len);
+						ericf("read %d bytes\n", (int) len);
 					}
 					reading = 0;
 					break;
 				case SSL_ERROR_WANT_READ:
 					/* Stop reading on socket timeout, otherwise try again */
 					if (BIO_ctrl(SSL_get_rbio(ssl), BIO_CTRL_DGRAM_GET_RECV_TIMER_EXP, 0, NULL)) {
-						printf("Timeout! No response received.\n");
+						ericf("Timeout! No response received.\n");
 						reading = 0;
 					}
 					break;
@@ -943,17 +950,17 @@ void start_client(char *remote_address, char *local_address, int port, int lengt
 					reading = 0;
 					break;
 				case SSL_ERROR_SYSCALL:
-					printf("Socket read error: ");
+					ericf("Socket read error: ");
 					if (!handle_socket_error()) exit(1);
 					reading = 0;
 					break;
 				case SSL_ERROR_SSL:
-					printf("SSL read error: ");
-					printf("%s (%d)\n", ERR_error_string(ERR_get_error(), buf), SSL_get_error(ssl, len));
+					ericf("SSL read error: ");
+					ericf("%s (%d)\n", ERR_error_string(ERR_get_error(), buf), SSL_get_error(ssl, len));
 					exit(1);
 					break;
 				default:
-					printf("Unexpected error while reading!\n");
+					ericf("Unexpected error while reading!\n");
 					exit(1);
 					break;
 			}
@@ -966,7 +973,7 @@ void start_client(char *remote_address, char *local_address, int port, int lengt
 	close(fd);
 #endif
 	if (verbose)
-		printf("Connection closed.\n");
+		ericf("Connection closed.\n");
 
 #ifdef WIN32
 	WSACleanup();
@@ -1024,23 +1031,24 @@ int main(int argc, char **argv)
 	if (argc > 1) goto cmd_err;
 
 	if (OpenSSL_version_num() != OPENSSL_VERSION_NUMBER) {
-		printf("Warning: OpenSSL version mismatch!\n");
-		printf("Compiled against %s\n", OPENSSL_VERSION_TEXT);
-		printf("Linked against   %s\n", OpenSSL_version(OPENSSL_VERSION));
+		ericf("Warning: OpenSSL version mismatch!\n");
+		ericf("Compiled against %s\n", OPENSSL_VERSION_TEXT);
+		ericf("Linked against   %s\n", OpenSSL_version(OPENSSL_VERSION));
 
 		if (OpenSSL_version_num() >> 20 != OPENSSL_VERSION_NUMBER >> 20) {
-			printf("Error: Major and minor version numbers must match, exiting.\n");
+			ericf("Error: Major and minor version numbers must match, exiting.\n");
 			exit(EXIT_FAILURE);
 		}
 	} else if (verbose) {
-		printf("Using %s\n", OpenSSL_version(OPENSSL_VERSION));
+		ericf("Using %s\n", OpenSSL_version(OPENSSL_VERSION));
 	}
 
 	if (OPENSSL_VERSION_NUMBER < 0x1010102fL) {
-		printf("Error: %s is unsupported, use OpenSSL Version 1.1.1a or higher\n", OpenSSL_version(OPENSSL_VERSION));
+		ericf("Error: %s is unsupported, use OpenSSL Version 1.1.1a or higher\n", OpenSSL_version(OPENSSL_VERSION));
 		exit(EXIT_FAILURE);
 	}
 
+        printf("Eric %d\n", argc);
 	if (argc == 1)
 		start_client(*argv, local_addr, port, length, messagenumber);
 	else

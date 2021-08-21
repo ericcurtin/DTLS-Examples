@@ -1,15 +1,15 @@
 
-CFLAGS      = -std=c99 -pedantic -Wall -g -Wextra -Wno-unused-parameter -Wno-unused-function -Wno-overlength-strings
-INCLUDES    = -I/usr/local/include
-LFLAGS      = -L/usr/local/lib
+CFLAGS      = -std=c99 -Wall -g
+INCLUDES    = -I/usr/include
+LFLAGS      = -L/usr/lib
 LIBS        = -lssl -lcrypto -pthread -lm -ldl
 
 #CFLAGS     += -fsanitize=address -fno-omit-frame-pointer -g
 #CFLAGS     += -fsanitize=memory -fno-omit-frame-pointer -g -fsanitize-memory-track-origins
 
 # Linux example
-#INCLUDES   = -I$(HOME)/my-openssl/include
-#LFLAGS     = -L$(HOME)/my-openssl/lib
+INCLUDES   = -I$(HOME)/openssl-sctp/include
+LFLAGS     = -L$(HOME)/openssl-sctp/lib
 
 # mac OS example
 #INCLUDES   = -I/usr/local/opt/openssl@1.1/include
