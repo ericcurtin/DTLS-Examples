@@ -1,0 +1,14 @@
+In a financial institution, IT risk management is driven by the need to adhere to industry
+and legislative regulation, hence data security is paramount. For this reason, financial
+institutions should stress test for potential vulnerabilities before migrating services to the
+public cloud.
+This research paper focuses on one particular attack vector in cloud technology, the
+Virtual Private Network (VPN). The VPN is a gateway to an institution’s private
+network. Malicious exploitation of this gateway could have potentially devastating
+effects on an institution’s reputation and business.
+The purpose of this thesis is to demonstrate a number of ways in which IPsec VPNs can
+be exploited. The practical experiments detailed in this study illustrate vulnerabilities in
+VPN technology, and highlight why financial institutions should adopt private cloud
+instead of public cloud solutions. These experiments are performed using freely available
+security tools, and are designed for use by any IT professional; not just security experts.
+

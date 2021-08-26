@@ -1,0 +1,2299 @@
+VPN Security Considerations for Financial Institutions
+Migrating to the Cloud
+Síofra O’Neill
+M.Sc. (Software Design & Development)
+National University of Ireland, Galway
+Discipline of Information Technology
+College of Engineering & Informatics
+23 August 2013
+Head of Discipline:
+Dr. Michael Madden
+Supervisor:
+Dr. Michael Schukat 
+ii
+Abstract
+In a financial institution, IT risk management is driven by the need to adhere to industry
+and legislative regulation, hence data security is paramount. For this reason, financial
+institutions should stress test for potential vulnerabilities before migrating services to the
+public cloud.
+This research paper focuses on one particular attack vector in cloud technology, the
+Virtual Private Network (VPN). The VPN is a gateway to an institution’s private
+network. Malicious exploitation of this gateway could have potentially devastating
+effects on an institution’s reputation and business.
+The purpose of this thesis is to demonstrate a number of ways in which IPsec VPNs can
+be exploited. The practical experiments detailed in this study illustrate vulnerabilities in
+VPN technology, and highlight why financial institutions should adopt private cloud
+instead of public cloud solutions. These experiments are performed using freely available
+security tools, and are designed for use by any IT professional; not just security experts. 
+iii
+Acknowledgments
+I would like to thank my supervisor Dr. Michael Schukat for all his help, guidance and
+encouragement throughout the year. Thanks also to everyone at the NUIG IT department
+and at Fidelity Investments who made it possible to perform this research. 
+iv
+Table of Contents
+1 INTRODUCTION ...................................................................................................... 1
+1.1 Overview............................................................................................................. 1
+1.2 Thesis Statement ................................................................................................. 1
+1.3 Scope................................................................................................................... 1
+1.4 Significance......................................................................................................... 2
+1.5 Research Methods............................................................................................... 2
+1.5.1 Case Study Research................................................................................... 3
+1.5.2 Action Research.......................................................................................... 3
+1.6 Thesis Layout...................................................................................................... 4
+2 LITERATURE REVIEW ........................................................................................... 5
+2.1 What is Cloud?.................................................................................................... 5
+2.2 Fundamentals of Security in the Cloud............................................................. 10
+2.2.1 Denial of Service (DoS) Attacks............................................................... 14
+2.3 Cloud Deployment Models............................................................................... 16
+2.3.1 Virtualization ............................................................................................ 16
+2.3.2 Public and Private Cloud Deployment Models......................................... 17
+2.4 Regulation, Governance and Compliance......................................................... 21
+2.5 Cloud Vendor Products and Offerings.............................................................. 23
+2.5.1 IBM SmartCloud....................................................................................... 24
+2.5.2 Amazon EC2............................................................................................. 26
+2.5.3 VMware vCloud........................................................................................ 28
+2.6 Building a Private Cloud................................................................................... 30
+2.7 IPsec VPN Technology..................................................................................... 31
+3 TECHNOLOGY REVIEW....................................................................................... 38
+3.1 Kali Linux ......................................................................................................... 38
+3.2 Metasploit ......................................................................................................... 39
+3.3 Graphical Network Simulator (GNS3) ............................................................. 39
+3.4 Wireshark.......................................................................................................... 40
+3.5 Nmap................................................................................................................. 41 
+v
+3.6 Ike-scan............................................................................................................. 41
+3.7 PSK-Crack ........................................................................................................ 42
+3.8 Flood_router6.................................................................................................... 42
+3.9 Amazon VPC .................................................................................................... 43
+4 IMPLEMENTATION............................................................................................... 46
+4.1 Overview of Technical Implementation ........................................................... 46
+4.2 Configuring Kali Linux..................................................................................... 47
+4.3 Initial GNS3 Setup............................................................................................ 48
+4.4 Creating a Site-to-Site IPsec VPN Topology in GNS3 .................................... 49
+4.4.1 Static IP Routing....................................................................................... 50
+4.4.2 Security Associations................................................................................ 51
+4.4.3 Configure the ISAKMP Policy................................................................. 52
+4.4.4 Configure IPsec Transform Set and Crypto Map ..................................... 53
+4.4.5 VPN Gateway Communication................................................................. 55
+4.4.6 Linking the GNS3 VPN Topology to a Real Network ............................. 60
+4.4.7 GNS3 to LAN Communication with Bridging ......................................... 61
+4.5 IPSec VPN Penetration Testing........................................................................ 66
+5 CONCLUSION......................................................................................................... 80
+5.1 Concluding Comments...................................................................................... 80
+5.2 Future Work...................................................................................................... 82
+5.2.1 Add Load-balanced VPN Gateway to Simulated Network ...................... 82
+5.2.2 Penetration Test of Real-World VPN Gateway........................................ 82
+REFERENCES ................................................................................................................. 83
+APPENDIX A - Explanation of IPv4 ............................................................................... 90
+APPENDIX B - SiteA VPN Gateway Router Configuration ........................................... 92
+APPENDIX C - SiteB VPN Gateway Router Configuration ........................................... 96
+APPENDIX D - ISP Router Configuration ...................................................................... 99
+APPENDIX E – Contents of /etc/network/interfaces ..................................................... 102 
+vi
+List of Figures
+Figure 1 – A graphical representation of the NIST definition of cloud computing............ 6
+Figure 2 – The basics of virtualization technology [26]................................................... 17
+Figure 3 - Organisational control varies according to the deployment model [3]............ 20
+Figure 4 – IBM illustration of the anatomy of a cloud [22]............................................. 24
+Figure 5 – Customer VPN connecting to Amazon VPC over public Internet.................. 27
+Figure 6 – Amazon VPC connecting to a corporate data centre [65] ............................... 45
+Figure 7 – An overview of the technical implementation of the research topic ............... 46
+Figure 8 - Site-to-Site VPN gateway topology in GNS3.................................................. 49
+Figure 9 - SiteA communicating with SiteB in GNS3...................................................... 55
+Figure 10 - SiteA to SiteB ping output ............................................................................ 56
+Figure 11 - SiteB to SiteA ping output ............................................................................. 57
+Figure 12 - Wireshark capture of ESP traffic between SiteA and SiteB .......................... 58
+Figure 13 - Wireshark capture of ESP traffic between SiteB and SiteA .......................... 59
+Figure 14 – Connecting the GNS3 topology to a real network......................................... 60
+Figure 15 - ifconfig ouput on Kali Linux.......................................................................... 62
+Figure 16 - TAP interface configuration for connecting to the local network.................. 63
+Figure 17 - Connect SiteA to the TAP interface on localhost node in GNS3 .................. 64
+Figure 18 - Ping a real network from GNS3..................................................................... 65
+Figure 19 - Ping GNS3 from a real network..................................................................... 66
+Figure 20 - VPN discovery using Nmap........................................................................... 67
+Figure 21 - Finger-printing VPN device using Ike Scan .................................................. 68
+Figure 22 - Finger-printing VPN device using Ike Scan in aggressive mode .................. 68
+Figure 23 - Wireshark capture of Ike Scan ....................................................................... 70
+Figure 24 - Save hash of pre-shared key using Ike Scan .................................................. 71
+Figure 25 - Using PSK-Crack to attempt to crack pre-shared key hash ........................... 71
+Figure 26 - Metasploit Pro in Kali Linux.......................................................................... 72
+Figure 27 – Conducting a penetration test in Metasploit Pro ........................................... 73
+Figure 28 - Metasploit Pro cracks pre-shared key ............................................................ 74
+Figure 29 - Results of a penetration test in Metasploit Pro .............................................. 74
+Figure 30 - Using flood_router6 in Kali Linux................................................................. 75
+Figure 31 - flood_router6 flooding network with router advertisements ......................... 76
+Figure 32 - Wireshark capture of network advertisements spawned by flood_router6.... 76
+Figure 33 - Unsuccessful pings caused by network congestion ....................................... 77 
+1
+1 INTRODUCTION
+1.1 Overview
+In a financial services institution, IT risk management is driven by the need to adhere to
+industry and legislative regulation, hence data security is paramount. For this reason,
+financial institutions should stress test for potential vulnerabilities before migrating
+services to the public cloud.
+The purpose of this research is to study one particular attack vector in cloud technology,
+the Virtual Private Network (VPN). The VPN is a gateway to an institution’s private
+network. Malicious exploitation of this gateway could have potentially devastating
+effects on an institution’s reputation and business. The penetration testing experiments
+and security analysis outlined in this paper demonstrate why a financial institution should
+favour a private cloud implementation over a public cloud implementation.
+1.2 Thesis Statement
+When migrating to the cloud, large financial institutions should create their own private
+cloud rather than adopting public cloud solutions due to vulnerabilities in VPN
+technology.
+1.3 Scope
+• Examine the key enabling technologies for public cloud and how public cloud
+may be used by a financial institution.
+• Investigate and compare the cloud services on offer by a number of marketleading cloud vendors e.g. Amazon EC2, and perform a fit-for-purpose analysis of
+their services for use by a financial institution.
+• Research VPN technology with emphasis on known vulnerabilities in IPsec
+implementations.
+• Implement a penetration test suite for cloud-based VPNs in a virtual
+environment using freely available software. 
+2
+• Use state-of-the-art security stress testing tools and techniques to demonstrate
+vulnerabilities in IPsec VPN solutions.
+• Analyse the results of a number of penetration testing experiments and conclude
+whether the risks associated with VPN connectivity should deter a financial
+institution from migrating to the public cloud.
+1.4 Significance
+The author has worked for eight years in the financial services sector. During this time
+she has been employed by two global financial services institutions, both of which have
+yet to embrace cloud technology. Financial services institutions are traditionally quite
+conservative with respect to adopting state-of-the art technologies [39]. However, these
+companies are particularly reluctant to migrate their services to the cloud due to recent
+high-profile security breaches which have compromised sensitive customer data and
+disrupted services [36] [42] [72]. The purpose of this thesis is to prove that VPN
+technology, the de facto method of connecting to a company’s network over public
+Internet, is a potential attack vector. The research experiments outlined in this paper
+demonstrate how vulnerabilities in cloud-based IPsec VPNs can be exploited, and
+highlight why a financial institution should adopt private instead of public cloud.
+1.5 Research Methods
+The following section briefly describes the research methods employed in researching
+material for this paper. Leedy & Ormrod make the point that research methodologies can
+evolve over time.
+"The methodology in a qualitative study may continue to evolve over the course of
+the investigation." [76]
+With this in mind, the author has used a combination of Case Study and Action Research
+methodologies in her research of the topic, ‘VPN Security Considerations for Financial
+Institutions Migrating to the Cloud’. 
+3
+1.5.1 Case Study Research
+Case Study Research can be defined as follows:
+"In a case study a particular individual, program, or event is studied in depth for
+a defined period of time." [76]
+Recall that the thesis scope includes the following tasks:
+• Examine the key enabling technologies for public cloud and how public cloud
+may be used by a financial institution.
+• Investigate the services on offer by a number of market-leading cloud vendors e.g.
+Amazon EC2, and perform a fit-for-purpose analysis of their services for use by a
+financial institution.
+• Research VPN technology with emphasis on known vulnerabilities in IPsec
+implementations.
+• Use state-of-the-art security stress testing tools and techniques to demonstrate
+vulnerabilities in IPsec VPN solutions.
+The author has performed case studies of historical security breaches or service failures
+affecting third-party cloud vendors.
+1.5.2 Action Research
+Action research has been described as ‘learning by doing’ [75]. This research
+methodology has driven the author's practical research of the thesis topic. Leedy &
+Ormrod explain that
+"Action Research focuses on finding a solution to a local problem in a local
+setting." [76]
+The 'local problem' in this case is how to demonstrate why a financial institution should
+not adopt public cloud technologies due to vulnerabilities in VPN security. 
+4
+Recall that the thesis scope includes the following tasks:
+• Implement a penetration test suite for cloud-based VPNs in a virtual environment
+using freely available software.
+• Use state-of-the-art security stress testing tools and techniques to demonstrate
+vulnerabilities in IPsec VPN solutions.
+• Analyse the results of a number of penetration testing experiments and conclude
+whether the risks associated with VPN connectivity should deter a financial
+institution from migrating to the public cloud.
+The information gathered in researching IPsec VPN technology is used to implement a
+virtual Site-to-Site VPN gateway. This virtual network topology is modelled on that of a
+popular public cloud service provider. Additionally, free security analysis tools have been
+researched in creating a penetration testing suite, which is used to expose vulnerabilities
+in the virtual VPN gateway.
+1.6 Thesis Layout
+The thesis begins with a review of existing scholarly writings related to cloud security,
+with emphasis on the distinction between the different cloud deployment models. In
+Chapter 2 the author defines cloud; describes the key enabling technologies of cloud;
+summarises the perceived benefits of adopting cloud; and introduces a number of cloud
+service providers. Also included in this chapter is a summary of Virtual Private Network
+(VPN) technology, on which the author has based her penetration testing experiments.
+Chapter 3 focuses on security tools that may be used to exploit vulnerabilities in VPN
+technology. The technical implementation of the penetration tests is outlined in Chapter
+4. Finally, the author’s concluding comments and ideas for future work are summarised
+in Chapter 5. 
+5
+2 LITERATURE REVIEW
+The author’s research is based on the assumption that a financial institution should adopt
+a private cloud deployment model instead of a hybrid or public cloud deployment model
+due to vulnerabilities in Virtual Private Network (VPN) technology. This chapter is a
+review of the existing scholarly writings that bear directly on the research effort.
+The first section serves as a brief introduction to cloud technology. The second section
+outlines the key concepts and challenges of cloud security. Section three discusses the
+relevance of the cloud deployment model with respect to security. A thorough analysis of
+regulatory and compliance considerations for cloud is beyond the scope of this thesis.
+However, section four briefly summarises some of the regulatory and governance
+challenges financial institutions may face when migrating to the cloud. Section five
+presents three vendor products and their public and private cloud offerings. Section six
+outlines a number of points to consider when forming a private cloud strategy. Finally,
+section seven introduces the key enabling technologies for cloud-based IPsec VPNs.
+2.1 What is Cloud?
+According to the National Institute of Standards and Technology (NIST) cloud
+computing is:
+“A model for enabling ubiquitous, convenient, on-demand network access to a shared
+pool of configurable computing resources (e.g., networks, servers, storage,
+applications, and services) that can be rapidly provisioned and released with minimal
+management effort or service provider interaction. This cloud model is composed of
+five essential characteristics, three service models, and four deployment models.” [1] 
+6
+Figure 1 is a graphical representation of the essential characteristics of the NIST
+definition of cloud computing.
+Figure 1 – A graphical representation of the NIST definition of cloud computing
+
+The NIST definition is broadly accepted by the cloud computing community and is
+referenced in many publications. For example IBM’s online resources quote from it [2].
+Winkler explains that although NIST standards were initially
+“Oriented for use by the US government, [they] have a great deal of applicability
+for non-government security engineering and architecture.” [3]
+Winkler goes on to reference the NIST definition throughout his book when introducing
+key cloud concepts such as deployment models and service architecture. Krutz and Vines
+explain that standards have to be developed for the cloud environment before it can gain 
+7
+acceptance and trust [4]. In this publication NIST is likened to the International
+Organization for Standardization (ISO) and the Organization for Advancement of
+Structured Information Standards (OASIS). Cloud is often referred to as ‘computing as a
+utility’ where the consumer pays for the resources they use. This is similar to how
+consumers pay for other metered utilities, like water or electricity, for example. Jones, of
+IBM, wrote:
+“Cloud computing is really nothing more than the provisioning of computing
+resources (computers and storage) as a service. Along with that comes the ability
+to dynamically scale the service to additional computers and storage in a simple
+and transparent way. All this is similar to the ideas behind utility computing, in
+which computing resources were viewed as a metered service, as is the case for
+more traditional utilities (such as electricity or water). What's different is not the
+goal behind these ideas but the existing technologies that have come together to
+make them a reality.” [5]
+Amrhein explains that the key value-add of cloud is its ability to scale up or down easily
+so that users get no more than the resources they require.
+“It is intended to be an all-inclusive solution in which all computing resources
+(hardware, software, networking, storage, and so on) are provided rapidly to
+users as demand dictates. The resources, or services, that are delivered are
+governable to ensure things like high availability, security, and quality. The key
+factor to these solutions is that they possess the ability to be scaled up and down,
+so that users get the resources they need: no more and no less. In short, cloud
+computing solutions enable IT to be delivered as a service.” [21] 
+8
+The cloud computing paradigm may have emerged only relatively recently, but the
+concept of computing as a utility is not new. While speaking at a ceremony celebrating
+MIT’s centennial anniversary in 1961, Professor John McCarthy said:
+“If computers of the kind I have advocated become computers of the future, then
+computing may someday be as organized as a public utility just as the telephone
+system is a public utility… The computer utility could become the basis of a new
+important industry.” [6]
+It’s interesting to think that this statement was made as early as the 1960’s. One only has
+to look at the successes of Amazon EC2 cloud or IBM SmartCloud to see how
+McCarthy’s vision has become reality half a century later.
+The advantages of cloud have been widely documented. Cloud solutions promise many
+benefits to potential adopters, including scalability and elasticity. Hurwitz and Kaufman
+build a business case for cloud as follows:
+“The most obvious reason that businesses initially consider cloud computing is
+because business leaders want a more predictable and cost-effective way to
+acquire and manage computing resources. Business leaders want IT to be able to
+change their computing environments as quickly as their needs change.” [7]
+Researchers have emphasised that using a “shared pool of configurable resources means
+users can be relieved from the burden of local data storage and upkeep” [8]. IT
+managers are attracted to cloud because it is purported to facilitate “the reduction of
+capital expenditure (CapEx) and operational expenditure (OpEx).” [9]
+Cloud service providers like Amazon EC2 are capitalizing on this supposition by
+exposing a utility of resources as a service “allowing smaller companies that cannot
+afford a large infrastructure to create and maintain online services with ease” [10]. 
+9
+Amazon EC2 is defined as follows:
+"Amazon Elastic Compute Cloud (Amazon EC2) is a web service that provides
+resizable compute capacity in the cloud. It is designed to make web-scale
+computing easier for developers. It provides you with complete control of your
+computing resources and lets you run on Amazon’s proven computing
+environment. Amazon EC2 reduces the time required to obtain and boot new
+server instances to minutes, allowing you to quickly scale capacity, both up and
+down, as your computing requirements change. Amazon EC2 changes the
+economics of computing by allowing you to pay only for capacity that you
+actually use. Amazon EC2 provides developers the tools to build failure resilient
+applications and isolate themselves from common failure scenarios.” [11]
+IBM characterises the cloud as “computing as a service over the Internet” and defines it
+as follows:
+“The delivery of on-demand computing resources—everything from applications
+to data centers—over the Internet and on a pay-for-use basis.” [12]
+IBM has its own suite of cloud solutions, IBM SmartCloud, which it describes as:
+“[A] Family of enterprise-class cloud computing technologies and services for
+securely building and using private, public and hybrid clouds. SmartCloud enables
+enterprises to confidently achieve new levels of innovation and efficiency with
+solutions for private cloud, PaaS1
+, SaaS2
+ and IaaS3
+.” [13]
+
+1
+ Platform as a Service
+2
+ Software as a Service
+3
+ Infrastructure as a Service 
+10
+Similar to IBM, and Amazon, VMware’s vCloud suite is this company’s attempt to fulfil
+the promise of a “software defined datacenter by pooling industry-standard hardware
+and running each layer of the datacenter as software-defined services” [19].
+Simply put, the adoption of cloud computing has the potential to cut organisational
+operating cost significantly. Cloud software, infrastructure and platform services are
+treated as a utility so the customer only pays for what they use. This can help reduce
+capital and operating costs by making resources available as and when they are needed.
+By treating computing assets as a shared resource, and thereby offloading service
+management to central team, developers and business leaders alike are able to focus on
+adding value and innovation. Another obvious reason for organisations to adopt the cloud
+is because it enables IT infrastructure to be easily scaled up or down to meet demand
+since application, middleware and platform services are available on demand [21].
+Furthermore, surveys have shown that the perception is that cloud technology will
+dominate IT industry by 2015 [22].
+2.2 Fundamentals of Security in the Cloud
+The objective of cloud data security can be summarised as protecting the confidentiality,
+integrity, and availability (CIA) of information [3]. Krutz and Vines make the following
+statement in their book on cloud security:
+“Confidentiality, integrity, and availability are sometimes known as the CIA triad
+of information system security, and are important pillars of cloud software
+assurance.” [4] 
+11
+The CIA triad is supported by legislation in the US. The Federal Information Security
+Management Act (FISMA) defines it as follows [16]:
+Confidentiality “Preserving authorized restrictions on information access and
+disclosure, including means for protecting personal privacy and proprietary
+information….A loss of confidentiality is the unauthorized disclosure of
+information.”
+Integrity “Guarding against improper information modification or destruction,
+and includes ensuring information non-repudiation and authenticity…. A loss of
+integrity is the unauthorized modification or destruction of information.”
+Availability “Ensuring timely and reliable access to and use of information....A
+loss of availability is the disruption of access to or use of information or an
+information system.”
+The National Institute of Standards and Technology have outlined the following steps
+towards compliance with FISMA [17]:
+1. Categorise the information to be protected.
+2. Select minimum baseline controls.
+3. Refine controls using a risk assessment procedure.
+4. Document the controls in the system security plan.
+5. Implement security controls in appropriate information systems.
+6. Assess the effectiveness of the security controls once they have been
+implemented.
+7. Determine agency-level risk to the mission or business case.
+8. Authorise the information system for processing.
+9. Monitor the security controls on a continuous basis. 
+12
+Yu et al detail the challenges of upholding the CIA triad with specific relevance to cloud
+computing.
+“Confidentiality, integrity and availability are three key issues in Information
+Assurance, they are also very important in Cloud Computing because applications
+are deployed in a shared network environment.” [18]
+In their paper the authors explain that confidentiality, in the context of the cloud, means
+that only persons with specific access privileges should be able to access your data.
+Integrity of data in the cloud means that the data or its format is not corrupted or
+interfered with when it is at rest or in transit. Availability in the cloud means that the data
+is available to the customer on demand.
+There are many documented advantages to using cloud [7] [11] [12], some of which are
+mentioned in the previous section. If cloud is so great, why hasn’t everyone adopted it?
+Spínola gives the following explanation:
+“Because there are some risks – some major ones – and inherent challenges such as:
+the security of the enterprise data that is stored in the cloud, the risk of lock-in to
+cloud platform vendors, loss of control over cloud resources that are run and
+managed by someone else, reliability, governance, performance, human capital,
+compliance, integration with legacy systems. Some of these risks still don't have an
+industry-wide solution.” [14]
+It is these risks that underpin the author’s assumption that a private cloud deployment
+model is the best fit for a large financial institution (the public cloud deployment model is
+reviewed in more detail in section 2.3.2). Spínola’s observation above is echoed in other
+publications and the community seems to be aware that there are some challenges and
+risks to using cloud computing. 
+13
+Messmer paraphrases Gartner research vice president Jay Heiser, who recently made the
+following points about the finance industry’s view on cloud computing:
+“Finance tends to be more conservative about cloud computing than small
+business…Gartner clients are almost universally disappointed by what they regard as
+the incompleteness in cloud-computing contracts where they still don't see the level of
+specificity related to security they expect…Cloud contracts are incomplete." [39]
+However, many are of the opinion that these risks are not necessarily new risks. For
+example, Roberts and Al-Hamdani explain that since cloud computing is essentially
+Internet-based computing, the security issues with cloud computing already exist in
+conventional computing [16]. The authors of this paper opine that cloud computing has
+security flaws but so does traditional computing and steps can be taken to reduce your
+exposure to the associated risks. They place the onus on the user to be aware of the
+different levels of data sensitivity and classify data accordingly.
+“No amount of security features will protect someone that blatantly posts
+confidential information in non-secure or public areas within the Internet.” [16]
+Boampong et al note that proper security policy is a prerequisite to a healthy and stable
+cloud computing environment.
+“A security policy should fulfil many purposes. It should protect people and
+information, and set the rules for expected behaviour by users, system
+administrators, management, and security personnel. Security policies should
+authorize security managers to monitor, analyze, and investigate organizations’
+computer systems. The policy should define and authorize the consequence of
+violation, define the company consensus baseline stance on security, help reduce
+risk and help track compliance with regulations and legislation.” [8] 
+14
+This sentiment is echoed by Winkler, who states that a well-defined security policy is the
+“true foundation for all security activities” [3], along with Krutz and Vines who are of
+the opinion that “security policies are the foundation of a sound security
+implementation” [4]. In their big ideas paper, Bacon et al demonstrate why role-based
+policy is important to end-to-end security in large scale distributed systems [20].
+These authors make a good argument for the importance of proper security policy in an
+organisation. Nevertheless, an enterprise may find that it is in fact better off consigning
+its data to a company with a dedicated security team working round the clock. Spínola
+points out that the majority of attacks are caused by failure to update software in a timely
+manner [14]. Winkler argues that entrusting your data to an external entity may actually
+serve to improve your data security on the whole:
+“The basic problem is that most organisations are neither qualified to be in the
+information security business nor are they in that business – they are simply using
+computers and networks to get their work done.” [3]
+It is wrong to assume that moving your data off premises implies compromising data
+security.
+2.2.1 Denial of Service (DoS) Attacks
+The public cloud is an attractive target for denial of services (DoS) attacks. A successful
+attack could disrupt service for a large number of users and cause substantial financial
+loss. The concept of availability in terms of the CIA triad, detailed in section 2.2, extends
+to guarantee of service, performance and up time [4]. If any of these are compromised so
+too is the contract between the cloud service provider and its customer. Recall that
+availability is defined by FISMA as “ensuring timely and reliable access to and use of
+information” and a loss of availability is “the disruption of access to or use of
+information or an information system” [16]. With this in mind, cloud service providers
+have a responsibility to protect against DoS attacks. 
+15
+Cloud service providers can take precautions to protect the availability of their services.
+Krutz and Vines list the following preventative measures to protect against DoS [4]:
+• Fault tolerance, meaning the provision of backups and redundant disk systems
+• Reliable network security processes and network security mechanisms
+What exactly constitutes a ‘reliable network security mechanism’ in terms of public
+cloud? Amazon AWS (which is reviewed in detail in section 2.5.2) employs a number of
+network security mechanisms to protect the availability of its cloud services. These are
+based primarily on existing network security measures, including intrusion detection and
+usage monitoring [71]. Cloud service providers should be careful not to guarantee
+protection against DoS attacks because the general consensus is that DoS attacks cannot
+be completely prevented [48] [71] [78]. Customers may assume that large cloud service
+providers are less likely to be affected by DoS attacks due to the vastness of their
+networks. However, Govshteyn warns that bandwidth alone is not enough to guarantee
+availability:
+“The entire notion of Amazon EC2 being resilient to DDoS attacks is hinged on
+the claim that “the cloud” has vast amounts of bandwidth. Welcome to the
+Internet circa 1999. Anyone with a lot of bandwidth can make the same claim –
+only they don’t because that doesn’t actually stop DoS attacks. Data centers and
+ISPs of size and scale have always been aggregation points for a lot of low
+latency, high bandwidth transit links to the Internet.” [78] 
+16
+Nevertheless, the impact of a DoS attack can be minimised by using proper firewalls,
+intrusion detection systems (IDS) and network usage monitors. The sooner a DoS attack
+is identified the sooner it can be neutralised. McClure et al have this to say about DoS
+countermeasures:
+“Because of their intractable nature, DoS and DDoS attacks must be confronted
+with multipronged defenses involving resistance, detection, and response. None of
+the approaches will ever be 100 percent effective, but by combining them, you can
+achieve proper risk mitigation for your online presence.” [48]
+One can also implement commercial anti-DoS solutions, e.g. Arbor Networks4
+, Prolexic5
+,
+for protection.
+2.3 Cloud Deployment Models
+Virtualization is a key enabling technology of the cloud – it is this which facilitates the
+sharing of a pool of resources among multiple users. It is important to first introduce
+virtualization before detailing the different types of cloud deployment models.
+2.3.1 Virtualization
+Virtualization is based on the principal where a virtual machine monitor (VMM) or host
+called a hypervisor enables multiple operating system instances to run on a single
+physical server. The hypervisor can either run directly on the physical operating system
+with the guest OS running on a layer above the hypervisor, or it can run within an
+operating system, with the guest OS running on the third layer above the hardware [24].
+Virtualization is not a new concept. It was originally developed in the 1960’s to partition
+mainframe hardware, but it saw a gradual decline in popularity as minicomputers and
+PCs became available. The technology has come to the fore again in recent times as a
+solution to problems like resource underutilisation and escalating maintenance costs [23].
+
+4
+http://www.arbornetworks.com/
+5
+http://www.prolexic.com/
+17
+The purpose of virtualization is to make maximum use of the horse-power available on a
+physical server. Large scale benefits include improved utilisation, reduced floor space
+requirements, and reduced power costs [25]. Many companies, such as RedHat,
+Microsoft and Dell offer virtualization products that aim to achieve this. However, for the
+purpose of this research, the author will concentrate on one of these companies only:
+VMware, who are one of the market-leading vendors of this technology and incidentally
+also have their own cloud offering.
+Figure 2 – The basics of virtualization technology [26]
+Figure 2 is an extract from a VMware presentation on the basics of virtualization. It
+shows that the networks, databases, CPU and other core hardware components are pooled
+together by means of a hypervisor for use across multiple virtual machines.
+2.3.2 Public and Private Cloud Deployment Models
+The following section summarises the main characteristics of public, community, hybrid
+and private cloud and the security implications associated with each type of deployment
+model. 
+18
+The NIST provides a definition of cloud computing deployment models [1]:
+Private cloud - “The cloud infrastructure is provisioned for exclusive use by a
+single organization comprising multiple consumers (e.g., business units). It may
+be owned, managed, and operated by the organization, a third party, or some
+combination of them, and it may exist on or off premises.”
+Community cloud - “The cloud infrastructure is provisioned for exclusive use by
+a specific community of consumers from organizations that have shared concerns
+(e.g., mission, security requirements, policy, and compliance considerations). It
+may be owned, managed, and operated by one or more of the organizations in the
+community, a third party, or some combination of them, and it may exist on or off
+premises.”
+Public cloud -“The cloud infrastructure is provisioned for open use by the
+general public. It may be owned, managed, and operated by a business,
+academic, or government organization, or some combination of them. It exists on
+the premises of the cloud provider.”
+Hybrid cloud - “The cloud infrastructure is a composition of two or more
+distinct cloud infrastructures (private, community, or public) that remain unique
+entities, but are bound together by standardized or proprietary technology that
+enables data and application portability (e.g., cloud bursting6
+ for load balancing
+between clouds).”
+
+6
+ Cloud bursting is an application deployment model in which an application runs in a private cloud or data
+centre and bursts into a public cloud when the demand for computing capacity spikes. The advantage of
+such a hybrid cloud deployment is that an organisation only pays for extra compute resources when they
+are needed. http://searchcloudcomputing.techtarget.com/definition/cloud-bursting. 
+19
+Based on the NIST definition, it is safe to assume that the cloud is private if it has been
+provisioned exclusively for use by a single organisation and does not support
+multitenancy. There are security implications associated with each deployment model.
+For example, private clouds can be built in private data centres, on hardware and software
+purchased and operated by a private organisation. While this gives the organisation more
+control over the environment, it may also pose some risks. As mentioned in section two a
+lot of security breaches are caused by an organisation’s failure to update software on time
+[14]. Very often it makes sense to outsource security requirements to a public cloud
+provider where teams of security experts provide round the clock support. However, there
+are scenarios when sensitive data simply cannot be entrusted to a public cloud. Winkler
+cites the financial services industry and government as examples of organisations which
+are constrained by data privacy requirements.
+“Financial services organizations might not be able to meet specific compliance
+regulations if customer data is externally hosted at a third party, no matter how
+well it might be secured. Governments might not be able to take the risk of the
+compromise (political, malicious or otherwise) if their cloud-based data is
+attacked.” [3]
+In such instances it may be useful to team up with other similar organisations to create a
+community cloud. For example, this type of cloud deployment model might suit multiple
+government agencies working under the same regulatory, compliance and legal
+constraints [3]. 
+20
+Figure 3 taken from Winkler’s Securing the Cloud [3] illustrates how organisational
+control varies according to deployment model.
+Figure 3 - Organisational control varies according to the deployment model [3]
+IT managers have to take this into consideration when choosing a cloud deployment
+model for their organisation. The following is an extract from Spínola’s Essential guide
+to the possibilities and risks of cloud computing [14] which lists some of questions they
+should ask themselves before making a decision:
+1. Where is my data?
+2. How does my data securely enter and exit the cloud?
+3. How is my data protected in transit/at rest?
+4. Who has access to my data?
+5. Who is accountable if something goes wrong?
+6. What’s the disaster recovery plan?
+7. What happens if my cloud provider disappears?
+8. How is the environment monitored?
+9. How is the data protected and secured? 
+21
+10. How easy is it to integrate with existing in-house IT?
+11. Does the system have enough customisation capabilities to suit my needs?
+12. How difficult is it to migrate back to an in-house system? Is it even possible?
+13. Are there any regulatory requirements on my business that can prevent me from
+using the cloud?
+Numbers 2, 3, 4 and 9 listed above are especially relevant to VPN technology, which is
+described in detail in the next Chapter.
+2.4 Regulation, Governance and Compliance
+A thorough study of regulation, governance and compliance, with respect to cloud is
+beyond the scope of this research. However, the main issues are summarised in this
+section for the two reasons:
+• Highlight the importance of cloud security in the financial services industry
+• Underline the necessity of testing all entry points to a company’s internal
+network for potential vulnerabilities
+Cloud technology differs from traditional computing technologies in two fundamental
+ways: the technology stack is shared between cloud users (this is called multitenancy)
+and cloud users’ data is abstracted away from their own physical infrastructure. This
+becomes challenging when trying to establish where data is physically located and who
+exactly has access to this data. Winkler encourages cloud users to perform “initial due
+diligence” before entrusting a cloud service provider (CSP) with their data.
+“If your organization is collecting and storing data in the cloud and this is subject
+to the legal requirements of one or more regulations (for instance, HIPAA7
+ or
+GLBA8
+), then you must ensure that the cloud provider protects the privacy of the
+data in the appropriate manner.” [3]
+
+7
+ HIPAA - Health Insurance Portability and Accountability Act 1996
+8
+ GLBA – Gramm–Leach–Bliley Act 1999 
+22
+He goes on to explain that the consumer, not the provider, is responsible for the
+regulatory compliance of data hosted on the cloud. If there is a breach in regulations it is
+the consumer who will be held accountable. Essentially, evaluating the regulatory
+requirements of your business may define what you can or cannot deploy to the cloud and
+which type of service you can use [3]. Krutz and Vines also emphasise the importance of
+assigning the responsibility for privacy controls to the business unit that owns the data
+rather than to the IT department [4]. As mentioned above, cloud presents certain
+challenges with regard to establishing where data physically resides.
+Gartner research has stated that cloud service consumers have the “right to understand
+the legal requirements of jurisdictions in which the provider operates” [27].
+This is important because certain jurisdictions have different rules with respect to who
+might access cloud data. For example, the law in China enables “local government to
+have unlimited access to data regardless of its sensitivity” [3].
+It goes without saying that it would not be appropriate for a global financial institution to
+use the cloud services of a CSP with operations in this country. Another geographically
+specific regulation is EU Directive 95/46/EC - The Data Protection Directive [28] (DPD)
+which regulates the processing of personal data within the European Union. Amazon has
+data centres in Ireland [29] for example, so this DPD may be applicable to personal data
+originating in Amazon cloud.
+ 
+23
+The Cloud Security Alliance (CSA) gives some good insight into the various legal issues
+that may be raised by moving data to the cloud. Their paper Security Guidance for
+Critical Areas of Focus in Cloud Computing v3.0 details how data protection laws can
+vary across different countries.
+“In the Asia Pacific region, Japan, Australia, New Zealand, and many others
+have adopted data protection laws that require the data controller to adopt
+reasonable technical, physical and administrative measures in order to protect
+personal data from loss, misuse, or alteration, based on the Privacy and Security
+Guidelines of the Organization for Economic Cooperation and Development
+(OECD)9
+.” [30]
+One can see how data loss prevention would be relevant to the financial services sector,
+especially to investment banking where technology outages can cause loss of data and
+loss of revenue particularly in high-frequency trading. Similar to Winkler, the CSA
+encourages consumers to perform due diligence before entrusting data to a CSP. The
+CSA goes a step further advising consumers, where possible, to enter into a written
+agreement with the Provider stating roles and responsibilities with respect to legal
+barriers, data privacy and control.
+2.5 Cloud Vendor Products and Offerings
+One of the aims of this research is to review the security offerings of a number of cloud
+service providers and perform a fit-for-purpose analysis of their products for use in a
+financial institution. The author has chosen three commercial suites of cloud products for
+this study, namely IBM SmartCloud, Amazon EC2 and VMware vCloud.
+
+9
+ OECD - Organisation for Economic Co-operation and Development http://www.oecd.org/ 
+24
+2.5.1 IBM SmartCloud
+IBM defines SmartCloud as follows:
+“[A] Family of enterprise-class cloud computing technologies and services for
+securely building and using private, public and hybrid clouds. SmartCloud
+enables enterprises to confidently achieve new levels of innovation and efficiency
+with solutions for private cloud, PaaS, SaaS and IaaS.” [31]
+Figure 4 is a high-level illustration of the layers that make up the IBM cloud stack:
+Infrastructure services, Platform services and Applications services [22].
+Figure 4 – IBM illustration of the anatomy of a cloud [22] 
+25
+IBM provides various solutions that cater for each of these layers:
+1. Application Services comprising applications like IBM Lotus Sametime instant
+messenger.
+2. Platform Services comprising middleware like IBM WebSphere application
+server.
+3. Infrastructure Services comprising infrastructure like virtualization & resource
+management.
+2.5.1.1 Private Cloud Services
+IBM offers Platform as a Service (PaaS), Infrastructure as a Service (IaaS) and Software
+as a Service (SaaS) enterprise solutions to customers. The IBM SmartCloud solutions
+suite also includes IaaS support for private Cloud implementation. IBM markets this
+product as follows:
+“The same proven technologies IBM uses for its clouds; IBM best-in-class
+security and open standards; Full control of access, availability and recovery.”
+[32]
+2.5.1.2 IBM SmartCloud Adopters
+Listed below are some enterprise adopters of IBM SmartCloud [33]:
+• A Global Electronics Manufacturer
+• Birmingham Metropolitan College
+• Chilean Red Cross
+• Full Finance
+• Ottawa Hospital 
+26
+2.5.2 Amazon EC2
+As noted above, the author has chosen Amazon EC2 as a second potential Cloud solution,
+in addition to IBM SmartCloud, for use in within a large financial institution.
+2.5.2.1 Amazon EC2 Features
+Listed below are some of the features that Amazon EC2 provides to assist in building
+“scalable, failure resilient, enterprise class applications” [11]:
+• Elastic Block Store. Amazon describes this feature as block-level storage for
+applications with database or file system requirements.
+• Amazon CloudWatch. Amazon’s resource monitoring tool.
+• Auto Scaling: Amazon EC2 allows the application to scale up or down
+automatically.
+• Elastic Load Balancing. This feature allows for traffic to be automatically
+distributed.
+• High Performance Computing. This service is suited to those Amazon
+customers with high compute and network requirements.
+• VM Import/Export. This feature allows applications to import/export virtual
+machines from their existing environment.
+2.5.2.2 Instance Types
+Like IBM SmartCloud, Amazon EC2 offers a suite of different instance types designed to
+cater for the requirements of the consumer. Listed below are some instance types [11]:
+• Standard Instances. Described as a low-cost standard set of resources are offered
+to new Cloud adopters. Amazon allows consumers to scale up if the application
+requires additional processing power at a later stage.
+• Micro Instances. These types of instances are suited to slow-traffic applications
+that may require additional processing in small bursts.
+• High-Memory Instances. These types of instances are geared towards databaseand cache-intensive applications.
+27
+• High-CPU Instances. Suited to compute-intensive applications.
+• Cluster Compute Instances. Geared towards compute- and network-intensive
+applications.
+• Cluster GPU Instances. These types of instances provide general-purpose
+graphics processing units.
+• High I/O Instances. Suited to applications with high disk I/O requirements, e.g.
+high-performance databases.
+Additionally, and most relevant to this body of research, Amazon has a Virtual Private
+Cloud (VPC) product. Figure 5 is a high-level illustration of the Amazon VPC topology.
+Essentially, Amazon VPC enables the user to avail of Amazon Web Services without
+having to share their Cloud [34].
+Figure 5 – Customer VPN connecting to Amazon VPC over public Internet
+Figure 5 shows a VPN connection between two sites, the customer network and the
+Amazon network. Connectivity over public Internet is achieved by means of a Site-toSite gateway network topology. This is shown in more detail in Figure 6 in section 3.9. 
+28
+2.5.2.3 Amazon EC2 Adopters
+The following are some examples of companies/institutions that have adopted Amazon
+EC2 [35]:
+Application hosting
+• Ericsson
+• Guardian News & Media
+Back-up and storage services
+• Washington Trust Bank
+Content Delivery
+• IMDB
+High Performance Computing (HPC)
+• Yelp
+• Harvard Medical School
+It is worth noting that there have been a number of high-profile Amazon EC2 service
+outages in recent times. On October 22nd 2012 service to companies such as Flipboard,
+FourSquare and Reddit were disrupted [36]. Such incidents are likely to deter potential
+users from adopting Amazon EC2 Cloud services.
+2.5.3 VMware vCloud
+VMware describes itself as “the global leader in virtualization and cloud infrastructure”
+[37]. Its remit is the same as the other vendor products described in this chapter: to
+provide cloud infrastructure to enterprise consumers. VMware’s vCloud suite is this
+company’s attempt to provide the following:
+“Software defined datacenter by pooling industry-standard hardware and
+running each layer of the datacenter as software-defined services.” [19] 
+29
+2.5.3.1 VMware vCloud Suite Components
+Below is a summary of vCloud components [37]:
+• vSphere. Described as virtualized infrastructure with policy-based automation.
+• vCloud. The suite’s cloud component, described as a virtualized data centre with
+multi-tenancy and public cloud extensibility.
+• vCloud Connector. This component allows for transfer of workloads between
+private and public clouds.
+• vCloud Networking and Security. Described as software defined networking,
+security, and ecosystem integration.
+• vCenter Site Recovery Manager. This component allows for automated disaster
+recovery planning, testing, and execution.
+• vCenter Operations Management Suite. Cloud configuration management tool.
+• vFabric Application Director. VMware describes this as a multi-tier application
+service catalogue publishing and provisioning.
+• vCloud Automation Center. This component allows for self-service and policyenabled cloud service provisioning.
+2.5.3.2 vCloud Adopters
+The following are some examples of companies/institutions that have adopted vCloud for
+their Cloud implementation [38]:
+• Columbia Sportswear
+• Ducati
+• Charles River Labs
+• Oxford University
+• Publishers Clearing House
+• Subaru & Minivegas 
+30
+2.6 Building a Private Cloud
+The previous sections have detailed some of the reasons why IT managers might favour a
+private cloud infrastructure over a public one: an institution or company may not be in a
+position to entrust their data to a third party; there may be regulatory requirements to
+consider; security may be an issue. When making the decision of what services might be
+moved to the cloud, Krutz and Vines recommend the following:
+“Critical applications that can affect an organizations mission should not be
+placed on the [public] cloud, and the cloud provider should demonstrate that its
+system exhibits resiliency in the event of system crashes.” [4]
+Winkler makes the case for private cloud:
+“Why would an enterprise invest in a private cloud when the field of public
+offerings is expanding? In essence: flexibility and security.” [3]
+He then goes on to provides some guidelines on what security considerations IT
+managers should take into account when building an internal private cloud. He stresses
+the importance of data segregation. It is very important that the private cloud enforce
+separation when there is no business need for making data from one group accessible to
+another group [3].
+There are network, data centre and operational issues to consider before deploying a
+private cloud. The participating institution must ensure that networks are separated, data
+centres are secure and that access is controlled appropriately. For example, on a practical
+level, the data centres which host the private cloud should employ security cameras, and
+have a reliable power source and environmental sensors in place [3]. All of the above
+contribute to the integrity and security of the private cloud. 
+31
+In their book, Private Cloud for Dummies, Hurwitz and Kaufman encourage would-be
+private cloud implementers to create a private cloud strategy before embarking on the
+migration process. They recommend they first ask themselves the following questions to
+help formulate a roadmap [7]:
+1. What do you want to do with your private cloud?
+2. Do you want to have a more flexible way to use your existing resources so that
+services can be provided with less overhead?
+3. Do you want to have a more proactive way to offer new innovative and revenue
+producing services to customers?
+4. What does your current environment look like?
+5. What are the characteristics of the workloads that you support?
+The point that Winkler, Kaufman and Hurwitz are trying to convey is that certain types of
+services are more suited to cloud than others. IT managers need to keep this in mind
+before migrating services to public cloud since private cloud may be a better fit.
+2.7 IPsec VPN Technology
+The purpose of this research is to demonstrate why a financial institution should favour a
+private cloud implementation over a public cloud implementation given security
+vulnerabilities in VPN technology. The VPN is a gateway to a company’s private
+network and malicious exploitation of this gateway could have potentially devastating
+effects to the company’s reputation and business. The section below is an introduction to
+VPN technology and how it may be exploited.
+The public cloud is most often accessed over a public Internet connection thus increasing
+the likelihood that information sent over the wire may be open to malicious attacks. For
+this reason a financial institution would never attempt to transmit sensitive information
+unprotected over a public Internet connection. Such a company would probably be in a
+position to negotiate a virtual private connection (or a virtual private network - VPN)
+with their CSP which may serve to reduce the possibility of an attack. However, there 
+32
+are caveats to using such a configuration. Performance is critical to many cloud
+computing applications so a VPN connection to a public cloud infrastructure may not be
+ideal for some types of cloud services.
+“Not all cloud computing providers will support encrypted tunnels, so your
+information may be sent in the open on the Internet. Where encryption is
+available, using it will certainly increase delay and may impact performance.”
+[40]
+Even if performance is not an issue, and the customer is in a position to procure a VPN
+connection with a public CSP, there is no guarantee that the hosted services would not be
+susceptible to attack. An attacker may still get access to an application’s network path
+and cause damage, be it in the form of data manipulation, or denial of service (DoS) for
+example. The Swiss-based company Compass Security, which provides “ethical hacking,
+penetration testing, and security review”’ as consulting services to global companies has
+this mantra:
+“Whatever you do on the client, the best policy can not protect from high skilled
+hackers, able to bypass TCP/IP stacks by their own technique. VPN clients are
+always a threat because it is a bridge into the heart of the company.” [41]
+There are a number of different types of VPN protocol, the most common being PTPP
+(Point-to-point Tunnelling Protocol), L2TP (Layer-2 Tunnel Protocol), SSL (Secure
+Socket Layer) and IPsec (Internet Protocol Security).
+The experiments detailed in this body of research focus squarely on IPsec VPN
+technology which is used for point-to-point access between two private networks. IPsec
+VPN would be the more likely VPN of choice for a financial institution wishing to
+connect its network to that of the CSP. Amazon employs this flavour of VPN technology
+for its Virtual Private Cloud (VPC) product [34] [49]. 
+33
+Below is the NIST definition of Internet Protocol Security, or IPsec, and VPN
+technologies.
+“IPsec is a framework of open standards for ensuring private communications
+over public networks. It has become the most common network layer security
+control, typically used to create a virtual private network (VPN). A VPN is a
+virtual network built on top of existing physical networks that can provide a
+secure communications mechanism for data and control information transmitted
+between networks. VPNs are used most often to protect communications carried
+over public networks such as the Internet. A VPN can provide several types of
+data protection, including confidentiality, integrity, data origin authentication,
+replay protection and access control.” [50]
+This definition includes a warning to users, explaining that although VPNs are capable of
+reducing the risks of networking, the technology should not be considered safe out of the
+box.
+“Although VPNs can reduce the risks of networking, they cannot totally eliminate
+them. For example, a VPN implementation may have flaws in algorithms or
+software, or a VPN may be set up with insecure configuration settings and values.
+Both of these flaws can be exploited by attackers.” [50]
+The NIST goes on to define the three primary models for VPN architectures, as follows:
+1. Gateway-to-gateway. “This model protects communications between two
+specific networks, such as an organization’s main office network and a branch
+office network, or two business partners’ networks.”
+2. Host-to-gateway. “This model protects communications between one or more
+individual hosts and a specific network belonging to an organization. The host-togateway model is most often used to allow hosts on unsecured networks, such as 
+34
+traveling employees and telecommuters, to gain access to internal organizational
+services, such as the organization’s e-mail and Web servers.”
+3. Host-to-host. “A host-to-host architecture protects communication between two
+specific computers. It is most often used when a small number of users need to use
+or administer a remote system that requires the use of inherently insecure
+protocol.” [50]
+The IPsec protocol suite includes:
+1. Authentication Header (AH). AH, provides integrity protection for packet
+headers and data, as well as user authentication. It can optionally provide replay
+protection and access protection. AH cannot encrypt any portion of packets10
+.
+2. Encapsulation Security Payload (ESP). ESP is used to provide confidentiality,
+data origin authentication, connectionless integrity, an anti-replay service (a form
+of partial sequence integrity), and limited traffic flow confidentiality11
+.
+3. Internet Key Exchange (IKE). Internet Key Exchange (IKE) is based on
+ISAKMP (Internet Security Association Key Management Protocol). The purpose
+of the IKE protocol is to negotiate, create, and manage security associations.
+Security association (SA) is a generic term for a set of values that define the IPsec
+features and protections applied to a connection12. IPsec needs SA’s to protect
+traffic. This component of IPsec manages authentication and key exchange. It
+works in two phases:
+a. IKE Phase 1. IKE phase 1 establishes a secure channel between two IPsec
+endpoints by negotiating the encryption algorithm, integrity algorithm,
+authentication type, key distribution mechanism, life time, etc. IKE Phase
+1 can operate in main mode (default) or aggressive mode. Main mode
+negotiates the bi-directional SA through three pairs of messages.
+
+10 AH is IP protocol number 51. The AH version 2 standard is defined in RFC 2402, IP Authentication
+Header, available at http://www.ietf.org/rfc/rfc2402.txt [50]
+11 ESP is IP protocol number 50. The ESP version 2 standard is defined in RFC2406, IP Encapsulating
+Security Payload (ESP), available at http://www.ietf.org/rfc/rfc2406.txt [50]
+12 The IKE standard is defined in RFC 2409, The Internet Key Exchange (IKE), available at
+http://www.ietf.org/rfc/rfc2409.txt. IKE uses UDP port 500 by default for its communications [50] 
+35
+Aggressive mode offers faster operations through the exchange of only
+three messages [53].
+b. IKE Phase 2. IKE phase 2 is used in establishing SAs required for
+protecting the data passed between two IPsec endpoints. The two peers
+negotiate a policy for AH and ESP. A unidirectional SA is established in
+IKE Phase 2 using a mode called Quick mode [53].
+The VPN is the industry standard method for securely connecting remote and mobile
+users to a company’s internal network. The technology is generally considered to provide
+strong protection for data communications and so is frequently overlooked as a possible
+attack vector [42]. The National Vulnerability Database13 tells a different story. Its search
+engine returns 53 instances of known software flaws related to VPN technology. Studies
+have also shown that incorrect configuration can make them just as vulnerable as any
+other Internet-facing system. For example, something as simple as failing to change the
+default VPN account settings can expose your VPN to attack [43]. VPN expert Rainer
+Enders echoes this sentiment in his article on how incorrect VPN configurations can lead
+to security breaches:
+“Misconfiguring VPN clients to compromise security can occur in the
+manipulation of Phase 1 and/or Phase 2 proposals of the IPsec connection. If the
+client is configured to work with AES12814, for example, and the user changes the
+encryption algorithm to DES15 (assuming the gateway allows DES as a valid
+security proposal), this would constitute a severe reduction in overall security
+because DES has much lower encryption strength and can be easily
+compromised.” [46]
+Enders has listed some of the more common ways a VPN can be compromised. One such
+method is a man-in-the-middle attack where an attacker snoops on a network connection
+
+13 The National Vulnerability Database is a repository containing references to known software flaws.
+http://web.nvd.nist.gov/view/vuln/search
+14 The Advanced Encryption Standard (AES) specifies a FIPS-approved cryptographic algorithm that can
+be used to protect electronic data [44]
+15 The Data Encryption Standard (DES) is a predecessor to AES and was withdrawn in 2005 [45] 
+36
+to gather user set-up information and credentials which are then used to establish a VPN
+connection [47]. McClure et al have demonstrated how Citrix VPN solutions can be
+hacked by exploiting vulnerabilities resulting from incorrectly configured software.
+“When it comes to robust products designed for security, many vulnerabilities are
+often based upon implementation or misconfigurations rather than vulnerabilities
+in the product itself. Citrix Access Gateway is one such product that is often
+deployed with common implementation mistakes that allow an attacker to gain
+access into an organization’s internal network.” [48]
+In their book, they explain that attackers can potentially gain access to an internal
+network by spawning a command shell from a seemingly ‘locked down’ environment.
+These shells are dangerous because they are executing on the remote Citrix instance, not
+the local machine. Most of these types of vulnerabilities can be addressed by
+implementing a very tight application and URL white listing policy. Security
+vulnerabilities caused by misconfiguring Citrix VPN gateways are beyond the scope of
+this research. However, the above scenario is a good example of how a VPN gateway is
+often “mistakenly seen as being secure out of the box” [48]. Saraswathi and Yogesh
+demonstrate how IPsec based VPN services are vulnerable to a denial of service (DoS)
+attack at the network layer:
+“IPsec provides secured key exchange and strong data protection -
+confidentiality, integrity, and authentication. IPsec VPN client computer becomes
+a member of the corporate LAN virtually. However IPsec does not protect the
+VPN service from DoS attack and traffic analysis.” [51]
+For example, such a DoS attack may involve an attacker sending a large amount of data
+to the VPN, more than the device is designed to handle, rendering it useless and causing a
+disruption to normal network flow. The DoS attack may be a protocol-based attack or an
+infrastructure-based attack. A protocol-based attack is where some aspect of the TCP/IP
+protocol is maliciously exploited, for example TCP SYN flood, Teardrop, Black Holes, 
+37
+Ping of Death. An infrastructure-based DoS attack may take the form of a
+bandwidth/flooding attack where the attacker consumes all the bandwidth preventing
+other traffic from reaching the VPN, or a resource depletion attack where the attacker
+exploits bugs in software to deplete resources like CPU, memory, buffer, firewalls etc.
+[51].
+Like anything else on the Internet, VPNs are used by humans and are subject to human
+error. Attackers can take advantage of this and obtain credentials by social engineering
+methods like phishing, along with keystroke-logging or screen scraping techniques. This
+was proven recently when hackers bypassed multi-factor VPN authentication to gain
+access to an airport’s network [52].
+As stated in section 2.5.2.2. Amazon provides a Virtual Private Cloud implementation for
+users that wish to establish a VPN connection to the public cloud infrastructure. Although
+this type of approach is certainly better than accessing cloud services over an unprotected
+Internet connection, it does not eliminate the possibility of malicious attacks. Based on
+the research of others it is reasonable to conclude that although a VPN connection is a far
+safer method of accessing your internal network over public Internet, it is not infallible.
+Such potential vulnerabilities should deter a large institution such as a financial
+institution from adopting public cloud via VPN approach. 
+38
+3 TECHNOLOGY REVIEW
+The following section is a summary of the technology used to produce a reusable suite of
+penetration testing tools for cloud-based VPNs. The author has elected to design and
+implement a virtual environment for the purpose of testing Site-to-Site IPsec VPN
+gateways. This suite of tools can ultimately be used to test real-world VPN gateways
+(with the permission of the production service provider). This chapter is a summary of
+technologies used in the implementation of the virtual Site-to-Site VPN gateway network
+topology and penetration testing suite.
+3.1 Kali Linux
+Kali Linux16 touts itself as the “most advanced penetration testing distribution ever” [55].
+It is a standalone Operating System (OS) based on Debian Linux distribution and comes
+packaged with a host of security tools. It is used for security audits and penetration
+testing. Kali Linux has been chosen as a key component of the technical implementation
+of this research for the following reasons:
+• It is free.
+• It is well supported and documented and has a community of users who are eager
+to share their experience and knowledge.
+• It is fully extensible and customisable like any Linux distribution and users can
+install whatever packages they wish.
+• It comes packaged with ~300 security tools including Metasploit.
+• It is a valuable tool for users already familiar with Linux.
+• It is specifically geared towards penetration testing and auditing.
+• It can be used to penetration test and stress test IPsec VPNs [53].
+• It can be downloaded and installed easily on any OS using virtualization software
+like VMware Player17 or Oracle VirtualBox18
+.
+• Runs with root user as default user which allows for easy administration.
+
+16 Kali - http://www.kali.org/
+17 VMware Player - http://www.vmware.com/products/player/
+18 Oracle VirtualBox - https://www.virtualbox.org/
+39
+The security tools packaged with Kali Linux are highly leveraged throughout the
+practical implementation of this project.
+3.2 Metasploit
+As mentioned above, the Kali Linux distribution comes packaged with the Metasploit
+Framework as standard. Metasploit19 is an easy to use toolkit that is geared towards both
+professional security experts and users new to penetration testing. It can be used
+independently of Kali Linux and is compatible with Windows, Mac OSX and Linux.
+With Metasploit the user can simulate real-world security attacks and expose
+vulnerabilities in a technology stack. The tool can also be used to produce a wellformatted report summarising the results of the test run [57]. A number of the
+experiments outlined in this research are performed using the Metasploit Framework.
+Some of the reasons for using Metasploit in this research are listed below:
+• It is free.
+• Similar to Kali Linux, it is well supported and documented and has a community
+of users.
+• It comes packaged in Kali Linux distribution.
+• It produces well-formatted reports.
+• Metasploit allows the user to simulate real-world vulnerability analysis and
+penetration tests.
+3.3 Graphical Network Simulator (GNS3)
+Graphical Network Simulator (GNS3)20 is open source software for simulating networks.
+It can be used independently of any actual physical hardware, making it ideal for
+performing experiments or studying for certifications such as Cisco CCNA, CCNP and
+CCIE as well as Juniper JNCIA, JNCIS and JNCIE [58]. GNS3 uses Dynamips (a Cisco
+IOS emulator) and Dynagen (a text front end to Dynamips) to allow users to build
+simulated network topologies.
+
+19 Metasploit - http://www.metasploit.com/
+20 GNS3 - http://www.gns3.net/
+40
+The author has chosen to use GNS3 for use in her experiments for the following reasons:
+• It is free.
+• It is well supported and documented since it is widely used as a study tool in
+preparation for recognised network administrator accreditations.
+• It is easily installed on any OS and is compatible with Kali Linux.
+• GNS3 allows for replication and simulation of a real-world Site-to-Site VPN
+gateway without the need to procure any dedicated network hardware such as
+routers and switches.
+• Permission for penetration testing of real-world VPN gateways may be limited
+and may not allow for some types of tests in case production stability is
+compromised so GNS3 is a useful alternative for testing purposes.
+GNS3 is used in this research as a means to replicate the full Site-to-Site VPN gateway
+topology so that it can be tested in the same way as a real-world network. This with the
+added benefit of not having to request permission from the production service provider
+before commencing the test exercise, or face consequences of inadvertently interrupting
+production services while performing network stress tests.
+3.4 Wireshark
+Wireshark21 (formerly known as Ethereal) is a widely-used network protocol analyser
+useful for monitoring and analysing traffic on a network. The tool consists of an easy to
+use graphical user interface that allows for sorting and filtering of live traffic on the wire.
+This tool is used throughout the technical implementation of this research project as
+follows:
+• Validate implementation of the simulated Site-to-Site VPN gateway topology by
+monitoring for encrypted packets between the two sites.
+• Validate connectivity between the simulated VPN gateway and the local machine
+by sniffing traffic over a bridge interface.
+
+21 Wireshark - http://www.wireshark.org/
+41
+• Validate implementation of stress-test experiments against the simulated VPN
+gateway by monitoring for traffic flooding a VPN router.
+• Confirm the effectiveness of network stress tests by verifying slowness in ping
+response times.
+Wireshark is completely free to use and has been described as “the de facto (and often de
+jure) standard across many industries and educational institutions” [59].
+3.5 Nmap
+Nmap (Network Mapper)22 is a free and open source security utility that is used for
+network discovery and security auditing. This command-line executable can be used to
+determine what hosts are available on a network and identify services running on various
+ports on those hosts’ ports. It is platform independent [60]. The Kali Linux distribution
+includes Nmap in its security toolkit. The experiments outlined in the next section use
+Nmap to identify the presence of a VPN gateway on a host by scanning UDP (User
+Datagram Protocol) port 500, the default port for VPNs.
+3.6 Ike-scan
+Ike-scan23 is a free and open source security command-line tool used for discover and
+fingerprinting of IPsec VPN network software. It can be used to crack aggressive mode
+pre-shared keys [61]. IPsec is a group of protocols including AH, ESP and IKE and Ike
+Scan, as the name suggests, is used based on IKE protocol. It is platform independent and
+comes packaged with Kali Linux as part of its security tool-kit.
+
+22 Nmap - http://nmap.org/
+23 Ike-scan - http://www.nta-monitor.com/tools-resources/security-tools/ike-scan
+42
+Ike-scan is used in this research as follows:
+• Fingerprint the simulated VPN gateway; discover what type of encryption is
+employed
+• Obtain a hash of the pre-shared key (PSK) used to encrypt data passed over the
+network
+• Crack the PSK using the hash produced by Ike Scan
+3.7 PSK-Crack
+PSK-Crack24 is a free command-line tool for cracking IKE aggressive mode pre-shared
+keys that have been obtained using Ike Scan. PSK-Crack works in two different modes:
+1. Dictionary mode (default mode) – try each word in a dictionary file until a
+match is found.
+2. Brute-force mode - try all possible combinations of a specified character
+set up to a given length [63].
+One of the experiments outlined in the technical implementation section uses PSK-Crack
+in an effort to uncover the pre-shared key used by simulated Site-to-Site VPN gateway.
+PSK-Crack is included in the set of security tools packaged with Kali Linux.
+3.8 Flood_router6
+Kali Linux includes a number of stress-testing tools which can be used for simulating
+denial of service attacks (DoS) on network resources. One such security tool is
+flood_router6. Flood_Router6 works by flooding a target with random router
+advertisements25. The purpose of this using this tool is to flood the device with more
+traffic than it can handle and disrupt its normal processing, slowing response times and
+perhaps even crippling it altogether. This security tool is employed in the simulation of a
+DoS attack in the experiments outlined in the next section.
+
+24 PSK-Crack - http://www.securitytube-tools.net/index.php@title=PSK-Crack.html
+25 A router advertisement is a multicast packet sent by a router periodically to announce its availability to
+other devices on the network http://docs.oracle.com/cd/E19683-01/817-0573/chapter1-45/index.html
+43
+3.9 Amazon VPC
+A number of third-party public cloud vendor products are summarised in the literature
+review section. A complete fit-for-purpose analysis of the security aspects of all of these
+cloud vendors is beyond the scope of this thesis. Instead the author has chosen to focus
+on one vendor in particular, and probably the most recognised brand of public cloud,
+Amazon EC2, or specifically Amazon VPC.
+“Amazon Virtual Private Cloud (Amazon VPC) is a secure and seamless bridge
+between your existing IT infrastructure and the Amazon Web Services cloud.
+Amazon VPC enables you to connect your existing infrastructure to a set of
+isolated AWS compute resources via a virtual private network (VPN)
+connection.”[64]
+On the face of it Amazon VPC sounds like a good fit for would-be cloud adopters that are
+concerned about security. Technology managers at a financial institution might like the
+sound of what Amazon VPC promises in its official documentation:
+“Amazon VPC provides advanced security features such as security groups and
+network access control lists to enable inbound and outbound filtering at the
+instance level and subnet level. In addition, you can store data in Amazon S3 and
+restrict access so that it’s only accessible from instances in your VPC. Optionally,
+you can also choose to launch Dedicated Instances which run on hardware
+dedicated to a single customer for additional isolation.” [34]
+44
+Amazon VPC is comprised of the following components:
+1. A Virtual Private Cloud (VPC). An isolated portion of the AWS cloud.
+2. Subnet. A segment of a VPCs IP address range where you can place
+groups of isolated resources.
+3. VPN connection. A link between the Amazon VPC and the customer
+network.
+4. VPN gateway. Amazon VPC side of the VPN connection.
+5. Customer gateway. Customer side of the VPN connection [64].
+Although the official documentation maintains that VPC is ‘secure’ and has ‘advanced
+security features’, the security features are based existing industry standards which have
+known vulnerabilities. Amazon also places part of the Site-to-Site VPN configuration
+responsibility with the customer who has to set up their own VPN connection. As
+highlighted in previous sections IPsec VPN technology like any other type of technology
+can be exploited. 
+45
+Figure 6 [65] is a graphical representation of the various components of Amazon VPC
+and how it can connect to a customer network via an IPsec Site-to-Site VPN
+configuration.
+Figure 6 – Amazon VPC connecting to a corporate data centre [65]
+The VPN connection consists of a Virtual Private Gateway (VPG) which is attached to
+the VPC, and a customer gateway located in the customer data centre. A VPG is the VPN
+gateway on the Amazon side of the VPN connection and the customer gateway is a
+physical device or software appliance on the customer side of the VPN connection [65].
+The experiments outlined in the next section use a simulated Site-to-Site IPsec VPN
+network topology, which has been designed to mimic how a corporate network might
+connect to Amazon VPC. 
+46
+4 IMPLEMENTATION
+The experiments outlined in this section have been implemented with freely available
+software, described in Chapter 3, and are designed run on a standard personal computer.
+No special hardware is required to perform the simulation. The free nature of the test
+suite makes it accessible to any individual seeking to perform a security analysis of a
+cloud-based VPN gateway; not just security experts.
+4.1 Overview of Technical Implementation
+Figure 7 is a high level overview of the software used in creating the simulated
+environment for penetration testing of cloud-based VPNs.
+Figure 7 – An overview of the technical implementation of the research topic 
+47
+As Illustrated in Figure 7, the technical implementation is based on three main
+components:
+1. VMware Player
+2. Kali Linux
+3. GNS3
+VMware Player is used to simulate a Linux operating system in the absence of a physical
+machine to host Kali Linux. GNS3 (Graphical Network Simulator) software is installed
+on this operating system. This software is used to create the simulated network topology.
+As shown in Figure 7 the GNS3 component comprises two VPN gateways and is
+connected to the penetration suite over the physical network.
+4.2 Configuring Kali Linux
+1. Download Virtual Player for Windows from VMware site
+2. Download Kali Linux using the instructions on the official Kali site
+3. Run Kali Linux distribution in VMware Virtual Player 
+48
+4.3 Initial GNS3 Setup
+1. Install GNS3 on Kali Linux:
+apt-get install gns3
+2. Install the latest Dynamips binary for Linux:
+apt-get install dynamips Dynagen
+3. GNS3 works with real IOS images compatible with the Cisco hardware emulated
+by Dynamips26 (the experiments outlined all use Cisco c3640 IOS)
+4. Install Wireshark for monitoring network traffic:
+apt-get install wireshark-gtk+
+apt-get install wireshark-gnome
+5. Install packages required for creating a tap0 interface necessary for connecting the
+simulated GNS3 topology to the real network:
+apt-get install uml-utilities
+apt-get install bridge-utils
+
+26 The Cisco router software image is not supplied with GNS3 and must be procured by the user 
+49
+4.4 Creating a Site-to-Site IPsec VPN Topology in GNS3
+Initial configuring and set-up of a Site-to-Site VPN topology in GNS3 can be time
+consuming especially when knowledge of network and Cisco devices is limited.
+There are a number of online tutorials on how to configure a Site-to-Site VPN topology
+in GNS3 [66] [67], though none specifically for Kali Linux running in VMware Virtual
+Player. Figure 8 illustrates the IPsec VPN topology in GNS3.
+Figure 8 - Site-to-Site VPN gateway topology in GNS3
+• Figure 8 shows SiteA connected to SiteB over public Internet via a number of
+serial ports. The public Internet is represented by a cloud icon labelled ‘ISP’ for
+Internet Service Provider.
+• SiteA is configured with loopback address 192.168.2.1, serial port s0/0 with IP
+address 10.1.1.1 and is connected to the ISP via a serial port.
+• SiteB is configured with loopback address 172.16.2.1, serial port s0/0 with IP
+address 172.16.1.1 and is connected to the ISP via a serial port. 
+50
+Essentially there are 6 steps in configuring the IPSec VPN to enable SiteA to ping SiteB
+and visa versa [68] [69]:
+1. Create an access control list (ACL) for the source and destination networks
+2. Define ISAKMP policy
+3. Set ISAKMP pre-shared key
+4. Set Transform-set for encryption and authentication
+5. Create crypto map and set the access list to use for the map
+6. Assign the crypto map to the external-facing interface
+4.4.1 Static IP Routing
+SiteA has to be able to ping the ISP before it can ping SiteB. This is achieved by
+configuring static IP routing. Static IP routing facilitates connectivity by adding static
+routes to the routing table27. The system administrator sets this up by configuring the
+routers manually. The following is the static IP configuration for SiteA and SiteB
+respectively. Note that the configuration syntax is specific to Cisco IOS routers.
+4.4.1.1 SiteA Static Routing Configuration
+ip route 0.0.0.0 0.0.0.0 Serial0/0
+ip route 172.16.1.0 255.255.255.0 10.1.1.2
+ip route 172.16.2.0 255.255.255.0 10.1.1.2
+The first line represents the default gateway for serial interface s0/0. The second line of
+configuration sets IP address 10.1.1.2 as the next hop in the path for all traffic originating
+in SiteA destined for IP 172.16.1.0 subnet 255.255.255.0. Similarly, the third line of
+configuration sets IP address 10.1.1.2 as the next hop for traffic originating in SiteA
+destined for IP address 172.16.2.0 subnet 255.255.255.0.
+
+27 Refer to APPENDIX A - Explanation of IPv4 for more information on Internet Protocol v4 
+51
+4.4.1.2 SiteB Static Routing Configuration
+ip route 0.0.0.0 0.0.0.0 Serial0/0
+ip route 10.1.1.0 255.255.255.0 172.16.1.2
+ip route 192.168.2.0 255.255.255.0 172.16.1.2
+The configuration above represents the static IP routing for all traffic originating in SiteB
+destined for SiteA. Again, the first line of configuration represents the default gateway
+for the serial interface s0/0. The second line sets IP address 172.16.1.2 as the next hop for
+all traffic originating in SiteB destined for IP 10.1.1.0 subnet 255.255.255.0. The third
+line of configuration sets 172.16.1.2 as the next hop for all traffic originating in SiteB
+destined for IP 192.168.2.0 subnet 255.255.255.0.
+4.4.2 Security Associations
+Security associations must be set up in addition to static route mappings to facilitate
+network connectivity between the two virtual VPN gateways. These access control lists
+(ACLs) will be used later on in the configuration to identify what traffic is to be
+encrypted. The configurations below are extracts of the ACLs for SiteA and SiteB
+respectively.
+4.4.2.1 SiteA Access List
+ip access-list extended ToSiteB
+ permit ip 192.168.2.0 0.0.0.255 172.16.2.0 0.0.0.255
+The Cisco IOS configuration below creates an extended access list named ToSiteB which
+will be used to encrypt traffic a source IP address of 192.168.2.0/24 range and a
+destination address of 172.16.2.0/24 range. 
+52
+4.4.2.2 SiteB Access List
+ip access-list extended ToSiteA
+ permit ip 172.16.2.0 0.0.0.255 192.168.2.0 0.0.0.255
+Similarly, the Cisco IOS configuration above creates an access list called ToSiteA which
+will be used to encrypt traffic with a source IP address 172.16.2.0/24 and a destination
+address of 192.168.2.0/24 range.
+4.4.3 Configure the ISAKMP Policy
+The ISAKMP policy is configured on both routers as part of the IKE Phase 1 key
+exchange negotiation.
+4.4.3.1 SiteA ISAKMP Policy
+crypto isakmp policy 2
+ encr 3des
+ authentication pre-share
+ group 2
+crypto isakmp key abc123 address 172.16.1.1
+4.4.3.2 SiteB ISAKMP Policy
+crypto isakmp policy 2
+ encr 3des
+ authentication pre-share
+ group 2
+crypto isakmp key abc123 address 10.1.1.1
+These extracts detail the following:
+• The ISAKMP policy priority (2)
+• The encryption algorithm (Triple DES)
+• The authentication method (pre-shared key) 
+53
+• The Diffie-Hellman group identifier (2)
+• The hash algorithm is implied (default is SHA)
+• The pre-shared key (‘abc123’)
+The important thing to note is that the IKE phase 1 policy is the same on both sides, i.e.
+both SiteA and SiteB have to be configured identically with the exception of the IP
+address for the external interface.
+4.4.4 Configure IPsec Transform Set and Crypto Map
+The IPsec transform set and crypto map are configured on both routers as part of IKE
+Phase 2.
+4.4.4.1 SiteA IPsec Transform Set
+The transform set below defines how the network traffic should be protected.
+crypto ipsec transform-set TSA esp-3des esp-sha-hmac
+The configuration above creates an IPsec transform set named TSA that uses Triple DES
+authentication and SHA encryption.
+4.4.4.2 SiteA Crypto Map
+crypto map CMPS1 1 ipsec-isakmp
+ description Tunnel to SiteB
+ set peer 172.16.1.1
+ set transform-set TSA
+ match address ToSiteB
+The extract above details the following configuration items:
+• Name of the crypto map (CMPS1)
+• The peer is the IP address of SiteB’s outside interface (172.16.1.1)
+• Sets the transform (TSA)
+• Matches the addresses of the ACL (ToSiteB) 
+54
+4.4.4.3 SiteB IPsec Transform Set
+The transform set below defines how the network traffic should be protected.
+crypto ipsec transform-set TSB esp-3des esp-sha-hmac
+The configuration above creates an IPsec transform set named TSB that uses Triple DES
+authentication and SHA encryption.
+4.4.4.4 SiteB Crypto Map
+crypto map CMPS2 1 ipsec-isakmp
+ description Tunnel to SiteA
+ set peer 10.1.1.1
+ set transform-set TSB
+ match address ToSiteA
+The extract above details the following configuration items:
+• Name of the crypto map (CMPS2)
+• The peer is the IP address of SiteB’s outside interface (10.1.1.1)
+• Sets the transform (TSB)
+• Matches the addresses of the ACL (ToSiteA) 
+55
+4.4.5 VPN Gateway Communication
+Once the appropriate VPN configuration is complete on both sites of the network
+topology, SiteA should be able to send encrypted messages to SiteB and visa versa.
+Figure 9 - SiteA communicating with SiteB in GNS3
+Figure 9 illustrates a GNS3 Site-to-Site VPN topology where SiteA has successfully
+pinged SiteB and SiteB has successfully pinged SiteA. The extended Ping command is
+used to set to the source and the destination IP addresses on the router device. The
+successful ping outputs are highlighted in red.
+The ‘Captures’ pane, bottom right in Figure 9, displays all Wireshark captures listening
+to network activity in the simulated network topology. A Wireshark capture has been set
+up to capture traffic passing between SiteA and the ISP routers. 
+56
+The router-to-router ping requests are illustrated in more detail in Figure 10 and Figure
+11. The area highlighted in red in Figure 10 shows a 5/5 success rate for UDP packets
+sent from SiteA to SiteB.
+Figure 10 - SiteA to SiteB ping output 
+57
+The area highlighted in red in Figure 11 shows a 4/5 success rate for UDP packets sent
+from SiteB to SiteA. In this instance one packet has been lost during the initial
+communication.
+Figure 11 - SiteB to SiteA ping output 
+58
+Figure 12 and Figure 13 illustrate Wireshark packet captures showing encrypted
+messages being sent over the network.
+Figure 12 - Wireshark capture of ESP traffic between SiteA and SiteB
+The ESP payload flowing from SiteA (10.1.1.1) to SiteB (172.10.1.1) is highlighted in
+red in Figure 12. 
+59
+Similarly, the ESP payload flowing in the opposite direction from SiteB (172.16.1.1) to
+SiteA (10.1.1.1) is highlighted in red in Figure 13.
+Figure 13 - Wireshark capture of ESP traffic between SiteB and SiteA 
+60
+4.4.6 Linking the GNS3 VPN Topology to a Real Network
+Once the VPN topology has been configured, the virtual GNS3 must be connected to the
+real network, i.e. the Kali Linux machine so that the penetration tests and security
+analysis experiments need to run against the simulated environment.
+Figure 14 is a screenshot of a GNS3 topology including a Site-to-Site IPsec VPN
+gateway connected to the local network over an Ethernet link.
+Figure 14 – Connecting the GNS3 topology to a real network 
+61
+4.4.7 GNS3 to LAN Communication with Bridging
+A bridge interface must be established to enable the local Kali Linux instance to
+communicate with the GNS3 topology. This connectivity is a pre-requisite to running the
+VPN penetration and network stress-testing experiments outlined in the next sections.
+4.4.7.1 Configuring the Real Network
+Network interfaces can be configured in /etc/network/interfaces on Linux. The following
+extracts detail the configuration on the Kali Linux machine used in this research.
+1. Configure an Ethernet interface in promiscuous mode with no IP address.
+# The primary network interface
+allow hotplug eth0
+auto eth0
+iface eth0 inet manual
+pre-up ifconfig eth0 0.0.0.0 promisc up
+2. Configure a TAP28 interface in promiscuous mode with no IP address.
+# The tap interface
+pre-up tunctl -u root -t tap0
+pre-up ifconfig tap0 0.0.0.0 promisc up
+3. Configure a bridge interface that bridges the primary Ethernet interface with the
+TAP interface.
+auto br0
+iface br0 inet dhcp
+bridge-ports eth0 tap0
+The end result is a network with a bridge interface, br0, which bridges the Ethernet
+interface, eth0, and the TAP interface, tap0.
+
+28 A TAP interface is a software-based network device that is used in virtual networking. 
+62
+The output of ifconfig command is displayed in Figure 15.
+Figure 15 - ifconfig ouput on Kali Linux
+In GNS3, the cloud object, representing the host machine, is configured to use the tap0
+interface instead of the generic NIO and eth0. 
+63
+Figure 16 demonstrates how the tap0 interface is configured on GNS3 node labelled
+‘localhost’ illustrated in Figure 14.
+Figure 16 - TAP interface configuration for connecting to the local network 
+64
+Create an Ethernet link from SiteA to the TAP interface on localhost as shown in the
+screenshot of the GNS3 topology illustrated in Figure 17.
+Figure 17 - Connect SiteA to the TAP interface on localhost node in GNS3
+Network connectivity can be tested once the TAP interface has been configured and
+SiteA connected to localhost. The Wireshark capture in Figure 18 demonstrates how
+SiteA can ping the localhost via the bridge interface (br0 configured in the interfaces
+file). 
+65
+The Wireshark capture in Figure 18 shows transmission of packets from the GNS3
+network device (IP address 192.168.17.136) and the bridge interface configured on Kali
+Linux machine (IP address 192.168.17.137). The console for SiteA, located in the
+foreground of the image displays the successful ping request.
+Figure 18 - Ping a real network from GNS3 
+66
+Figure 19 is a Wireshark capture of packets being transmitted in the opposite direction,
+from the bridge interface (IP address 192.168.17.137) configured on Kali Linux to the
+network device configured in GNS3. The console located in the foreground displays the
+successful ping request.
+Figure 19 - Ping GNS3 from a real network
+4.5 IPSec VPN Penetration Testing
+The experiments outlined in this research paper demonstrate how easy it can be to
+penetrate VPN configurations using freely available security tools and methodologies.
+The expectation is that the penetration tester/security analyst should be able to apply the
+same penetration testing methods to a real-world gateway. The purpose of this exercise is
+to highlight the importance of performing adequate stress testing of cloud-based VPN
+before moving services to the cloud. The experiments outlined follow this basic flow:
+1. VPN discovery
+2. VPN implementation fingerprinting
+3. Pre-shared key (PSK) mode assessment and PSK sniffing
+4. Offline PSK cracking
+5. VPN Penetration Testing/Security analysis
+6. VPN gateway stress-testing 
+67
+4.5.1.1 VPN Discovery (Nmap)
+The following experiment uses Nmap to identify the presence of a VPN gateway. By
+default ISAKMP uses UDP port 500 for IPsec communications.
+Figure 20 - VPN discovery using Nmap
+The ‘–sU’ option used in Figure 20 signifies the use of UDP protocol and ‘–p’ is used to
+specify the port. The command output shows port 500 as being open thus proving that
+there is an ISAKMP device is located at IP address 192.168.17.136 (the IP address of the
+bridge interface connecting the TAP interface to the physical Ethernet interface). Nmap
+can take an IP address range as input if the exact IP address is unknown, e.g.
+192.168.17.1/24, and it will scan all devices in that address space. 
+68
+4.5.1.2 VPN Fingerprinting (Ike Scan)
+The VPN fingerprinting experiment can take place once the VPN discovery process is
+complete. This is performed using the ike-scan security tool, which is packaged with Kali
+Linux.
+Figure 21 - Finger-printing VPN device using Ike Scan
+Nmap has already discovered the presence of a VPN device on the network. Ike Scan is
+used to determine the IKE implementation. The command output confirms the presence
+of a VPN gateway but does not return a handshake or provide any additional information
+on the IPsec implementation. The ‘–M’ argument shows each payload in a line, so that
+the output will be neat and easy to understand. By default Ike Scan runs in ‘main’ mode.
+Ike Scan will execute in ‘aggressive’ mode when the ‘–A’ argument is passed in.
+Figure 22 - Finger-printing VPN device using Ike Scan in aggressive mode 
+69
+Additional implementation information is provided when Ike Scan is run in aggressive
+mode. The command output illustrated in Figure 22 shows a handshake being returned
+along with information on what type of encryption, authentication and hashing algorithm
+for the PSK are being used. Given all this information, it is possible to crack a PSK and
+gain unauthorised access to the VPN device. The output of Ike Scan can be any of the
+following:
+• 0 returned handshake; 0 returned notify. The target IP address is not an IPsec
+gateway [53].
+• 1 returned handshake; 0 returned notify. The target is configured for IPsec and
+is willing to perform IKE negotiation, and either one or more of the transforms
+proposed by Ike Scan is acceptable [53].
+• 0 returned handshake; 1 returned notify. Suggests that further analysis is
+required. VPN gateways generally respond with a notify message when none of
+the transforms are acceptable [53].
+In the example of Ike Scan illustrated in Figure 22, the VPN gateway at IP address
+192.168.17.136 replies with one returned handshake and the acceptable transform set has
+these parameters:
+Enc=3DES Hash=SHA1 Group=2:modp1024 Auth=PSK LifeType=Seconds
+LifeDuration=28800
+ 
+70
+The Wireshark screenshot in Figure 23 shows the packets created by the Ike Scan
+command being executed in aggressive mode.
+Figure 23 - Wireshark capture of Ike Scan 
+71
+4.5.1.3 Pre-shared Key (PSK) Mode Assessment and PSK Sniffing
+Ike Scan can be used with the ‘—pscrack’ option which returns a hash of the pre-shared
+key. The command shown in the screenshot below saves this to a local file named
+‘vpn.psk’. This will be used in the next experiment which attempts to crack the PSK
+using the PSK-Crack security tool (also included in Kali Linux).
+Figure 24 - Save hash of pre-shared key using Ike Scan
+4.5.1.4 Offline PSK Cracking (PSK-Crack)
+PSK-Crack, as described in the technical review section, runs in dictionary mode by
+default. The command output below explains that no match was found and the program
+was unable to crack the PSK.
+Figure 25 - Using PSK-Crack to attempt to crack pre-shared key hash
+This is not the only way crack a PSK, however, as the following experiment with
+Metasploit Pro shows. 
+72
+4.5.1.5 VPN Penetration Testing & Security Analysis
+As described in section 3.2, Metasploit Pro is included in the Kali Linux distribution. It
+can be found under the menu item highlighted in Figure 26. Once the Metasploit
+Framework services are running, Metasploit Pro can be accessed via a password
+protected web tool at http://localhost:3790.
+Figure 26 - Metasploit Pro in Kali Linux 
+73
+The screenshot illustrated in Figure 27 shows the ‘Quick PenTest’ functionality, circled
+in red, available in Metaspoit Pro.
+Figure 27 – Conducting a penetration test in Metasploit Pro
+A Metasploit Pro penetration test is easily able to crack the pre-shared key configured in
+SiteA located at IP 192.168.17.136 (the IP address of the bridge interface connecting the
+TAP interface to the physical Ethernet interface). 
+74
+The cracked pre-shared key is visible in the PenTest console as illustrated in Figure 28.
+Figure 28 - Metasploit Pro cracks pre-shared key
+Results of any previous penetration tests are then maintained for review later (see link to
+‘GNS3 Topology Test’ highlighted in Figure 27).
+Figure 29 - Results of a penetration test in Metasploit Pro 
+75
+4.5.1.6 VPN Gateway Stress-Testing
+This portion of the experiment involves using flood_router6 to disrupt the normal
+operation of the VPN gateway. This is a simulated denial of service (DoS) attack. As
+described in Chapter 3, flood_router6 is packaged with Kali Linux. The short-cut to
+flood_router6 command console is located under the menu item highlighted in Figure 30.
+Figure 30 - Using flood_router6 in Kali Linux
+It is advisable to obtain permission the network administrator before attempting to
+perform a DoS experiment on a real network. The following experiment is performed
+against a simulated network for testing purposes so as not to disrupt the normal operation
+of any production services. 
+76
+Figure 31 illustrates how flood_router6 can slow down and even prevent UDP packets
+from reaching their destination.
+Figure 31 - flood_router6 flooding network with router advertisements
+As shown in the command output, each dot represents 100 packets spawned by
+flood_router6. The packets are sent to the br0 bridge interface which connects the local
+Kali machine to SiteA VPN gateway in the GNS3 topology. The network congestion is
+visible in the Wireshark capture outlined in Figure 32.
+Figure 32 - Wireshark capture of network advertisements spawned by flood_router6 
+77
+UDP ping packets are failing to reach their destination because the network is being
+flooded with router advertisements. SiteA is struggling to operate normally under the
+stress test.
+Figure 33 - Unsuccessful pings caused by network congestion
+The experiment outlined above is an extremely simplistic example of how to launch a
+DoS attack on a network device like a VPN gateway. In normal circumstances the
+penetration tester would acquire the approval of the production cloud service provider
+before initiating such a test. It is also possible that production cloud service providers are
+equipped with security detection programs than can identify possible DoS attacks and
+isolate them before any real damage is done. 
+78
+For example, Amazon Web Services has documented their network monitoring and
+protection policies.
+“AWS security monitoring tools help identify several types of denial of service
+(DoS) attacks, including distributed, flooding, and software/logic attacks. When
+DoS attacks are identified, the AWS incident response process is initiated. In
+addition to the DoS prevention tools, redundant telecommunication providers at
+each region as well as additional capacity protect against the possibility of DoS
+attacks.” [71]
+According the documentation, the AWS network provides protection for the following
+types of security issues (they also invite users to implement additional protection on top
+of this) [71]:
+• Distributed denial of services
+• Man in the middle attacks
+• IP spoofing
+• Port scanning
+• Packet sniffing by other tenants
+This protection is achieved by means of automated monitoring systems, designed to
+detect unusual or unauthorised activities on the network. Specifically, these systems
+monitor network usage, port scanning activities and intrusion attempts [71]. It is
+interesting to note that Amazon encourages users to report issues via the AWS
+vulnerability reporting website29. Such a statement could be construed as an admission
+that the system is not completely immune to exploitation despite the company’s best
+efforts to provide security.
+
+29 AWS vulnerability reporting - http://aws.amazon.com/security/vulnerability-reporting/
+AWS security bulletins - http://aws.amazon.com/security/security-bulletins/
+79
+Nowhere in the Amazon security documentation does it state that its network monitoring
+tools are able to deflect a DoS attack, rather the consumer is assured that the AWS
+network is widely distributed and capable of absorbing an attack.
+“Proprietary DDoS mitigation techniques are used. Additionally, AWS’s networks
+are multihomed across a number of providers to achieve Internet access
+diversity.” [71]
+While this statement certainly is reassuring, customers using Amazon VPC ought to
+remember that their network topology consists of a customer gateway in addition to the
+‘secured’ Amazon gateway. This gateway resides in the customer network and may still
+be vulnerable since it is not protected by a vast, ‘multihomed’ and diverse network
+capable of absorbing a DoS attack. In fact Amazon has been careful with the wording of
+the description of their network monitoring tools:
+“When DoS attacks are identified, the AWS incident response process is
+initiated.” [71]
+The company makes no promise of completely preventing a DoS attack. However, it does
+take a number of precautions to limit the damage, e.g. by initiating an incident response
+as soon as possible when an attack has been identified.
+Amazon cloud security offerings may in fact be sound but that does not preclude the need
+for proper extensive penetration testing and security auditing. In theory the penetration
+testing suite outlined in previous sections could be used to perform a pen-test of the
+Amazon VPC instance, and to determine whether Amazon Web Services network is as
+protected and secure as it claims to be. 
+80
+5 CONCLUSION
+5.1 Concluding Comments
+The purpose of this research was to demonstrate why a financial institution should create
+its own private cloud rather than adopting public cloud due to vulnerabilities in VPN
+technology.
+This paper initially set out to investigate the key enabling technologies of cloud, along
+with a number of popular cloud service providers. The author focused on Amazon VPC
+as it incorporates the use of VPN technology, the de facto method of sending encrypted
+packets between two networks over the Internet. IPsec VPN technology was researched
+with emphasis on known vulnerabilities. The information gathered was then used to
+create a reusable suite of penetration testing tools using freely available software. For the
+penetration testing experiments, a simulated Site-to-Site VPN gateway network was
+created using GNS3. The simulated network topology was designed to mirror the
+Amazon VPC network topology so that the tests could be applied easily to this real
+production service in the future.
+The experiments outlined in Chapter 4 demonstrate how IPsec VPN technology can be
+exploited such that connectivity to an organisation’s internal network could be
+compromised. Certain types of VPN configurations, such as IKE in aggressive mode can
+expose pre-shared keys that could potentially be used to gain access to the data being
+shared between two IPsec endpoints. On a more practical level, the experiments detail the
+steps involved in setting up a penetration testing toolkit and a simulated network
+environment consisting entirely of free software. This research has also shown how
+simple it is to flood a router device with more traffic than it can handle affecting its
+ability to perform its job properly. The rate of successful pings to that network device
+decreased instantly once flood_router6 began flooding the network with router
+advertisements. 
+81
+Section 4.5.1.6 describes how cloud service providers (CSPs) like Amazon have taken
+precautions to mitigate against distributed denial of services (DDoS) attacks. However,
+Amazon acknowledges that there may be vulnerabilities in the services and openly
+encourages customers to perform their own penetration testing and security analysis. The
+suggestion that customers should perform due diligence is testament to the fact that even
+Amazon cannot guarantee its cloud products to be completely safe ‘out of the box’.
+Historical high-profile security breaches [36] [42] [72] highlight that no such guarantee
+could or should be made. Figure 3 illustrates how organisational control can vary
+according to cloud deployment model. This may be acceptable to certain types of
+companies. However, a financial institution that relies so heavily on reputation and
+security should consider all vulnerabilities before underwriting such risk. Moreover, it
+stands to reason that a financial institution can avoid the kind of operational risk
+introduced by extending its network to public cloud simply by not adopting public cloud.
+Even if identifying vulnerabilities in VPN gateway were not enough to deter a financial
+institution from using public cloud, establishing a reusable suite of penetration testing
+tools would benefit the organisation in the long-term. This would help baseline VPN
+security capabilities and identify weaknesses. In addition, use of freely available and
+easy-to-use security tools, as documented in this paper, is also beneficial since it allows
+the testing to be performed by any IT professional; not just security experts. The
+accessibility of these tools serves to improve awareness of these vulnerabilities across the
+IT organisation.
+It is important that financial institutions realise the very real risk of using cloud-based
+VPNs and take appropriate preventative measures. This research project has served to
+illustrate the ease at which freely available security tools can compromise IPsec VPN
+gateways. Choosing private cloud over public cloud removes the need for a VPN and this
+type of threat is eliminated. 
+82
+5.2 Future Work
+5.2.1 Add Load-balanced VPN Gateway to Simulated Network
+Extend the GNS3 simulated network topology to include additional gateways to provide
+redundancy and continuity of service in the event that one instance is compromised. The
+experiment would involve executing an attack on one VPN gateway in an attempt to
+render it unusable, at which stage the backup VPN would be activated and all traffic
+automatically diverted.
+5.2.2 Penetration Test of Real-World VPN Gateway
+Apply the tests outlined in the experiments in section 4.5 to a real-world production VPN
+gateway instead of a simulated lab environment to demonstrate their effectiveness.
+Obtain permission from a CSP to conduct a penetration test of their VPN gateway. For
+example, Amazon allows users to test their systems for vulnerabilities. They have strict
+guidelines on what is acceptable to test (a distributed denial of service attack simulation
+may not be acceptable for example due to the potential to disrupt normal operations). The
+company also stipulates that tests are scheduled in advance of execution [74].
+Vulnerabilities can then be reported to AWS via their website.
+83
+REFERENCES
+[1] Mell, P. & Grance, T. (2011). The NIST Definition of Cloud Computing. National
+Institute of Standards and Technology [online]
+http://csrc.nist.gov/publications/nistpubs/800-145/SP800-145.pdf [last accessed 23
+August 2013]
+[2] IBM (2013). NIST’s Definition of Cloud Computing. IBM Developer Works
+Technical Library [online]
+https://www.ibm.com/developerworks/mydeveloperworks/blogs/CloudComputing/entry/
+nist_s_definition_of_cloud_computing_what_is_cloud_computing?lang=en [last
+accessed 23 August 2013]
+[3] Winkler V. (2011) Securing the Cloud. Syngress, an imprint of Elsevier, 255 Wyman
+Street, Waltham, MA. ISBN 978-1-597-49592-9.
+[4] Krutz L. & Dean Vines R. (2010). Cloud Security: a comprehensive guide to secure
+cloud computing. Wiley Publishing Inc., Indianapolis IA. ISBN 978-0-470-58987-8.
+[5] Jones, M.T (2008). Cloud computing with Linux. IBM Developer Works Technical
+Library [online] http://www.ibm.com/developerworks/linux/library/l-cloudcomputing/index.html [last accessed 23 August 2013]
+[6] Garfinkel, Simson (1999). Abelson, Hal. ed. Architects of the Information Society,
+Thirty-Five Years of the Laboratory for Computer Science at MIT. MIT Press, Cambridge
+MA. ISBN 978-0-262-07196-3.
+[7] Hurwitz, J. & Kaufman, M. (2011). Private Cloud for Dummies, IBM Special Edition.
+John Wiley & Sons Inc., Hoboken, NJ. ISBN 978-1-118-15263-8.
+[8] Boampong, P. & Wahsheh, L. (2012). Different Facets of Security in the Cloud.
+Proceedings of the 15th Communications and Network Simulation Symposium. Society
+for Computer Simulation International. San Diego, CA. ISBN 978-1-61839-785-0.
+[9] Jenson, M. et al (2009). On Technical Security Issues in Cloud Computing. 2009
+IEEE International Conference on Cloud Computing. ISBN 978-0-7695-3840-2.
+[10] Balduzzi, M. et al. (2012). A Security Analysis of Amazon’s Elastic Compute Cloud
+Service. ACM New York, NY. ISBN 978-1-4503-0857.
+[11] Amazon (n.d.). Amazon Elastic Compute Cloud. Amazon [online]
+http://aws.amazon.com/ec2/ [last accessed 23 August 2013]
+[12] IBM, (n.d.). What is Cloud? IBM [online] http://www.ibm.com/cloudcomputing/us/en/what-is-cloud-computing.html [last accessed 23 August 2013] 
+84
+[13] IBM, (n.d.b.). IBM SmartCloud. IBM [online] http://www.ibm.com/cloudcomputing/us/en/index.html [last accessed 23 August 2013]
+[14] Maria Spinola (2009) An Essential Guide to the Possibilities and Risks of Cloud
+Computing [online]
+http://www.mariaspinola.com/whitepapers/An_Essential_Guide_to_Possibilities_and_Ris
+ks_of_Cloud_ComputingA_Pragmatic_Effective_and_Hype_Free_Approach_For_Strategic_Enterprise_Decision_
+Making.pdf [last accessed 23 August 2013]
+[16] NIST (2002). Federal Information Security Management Act of 2002. NIST [online]
+http://csrc.nist.gov/drivers/documents/FISMA-final.pdf [last accessed 23 August 2013]
+[17] Boughn, J. (2009). HIPAA Security Rule Conference [online]
+http://csrc.nist.gov/news_events/HIPAA-May2009_workshop/presentations/1-051809-
+keynote.pdf [last accessed 23 August 2013]
+[18] Yu, H. et al (2012). Cloud Computing and Security Challenges. ACM New York,
+NY. ISBN 978-1-4503-1203-5.
+[19] VMware, (n.d.). VMware vCloud Suite.
+http://www.VMware.com/products/datacenter-virtualization/vcloud-suite/overview.html
+[last accessed 23 August 2013]
+[20] Bacon, J. et al (2010). Enforcing End-to-End Application Security in the Cloud (Big
+Ideas Paper). ACM New York, NY. ISBN 978-3-642-16954-0.
+[21] Amrhein, D., Quint, S. (2009). Cloud Computing for the Enterprise Part 1 -
+Understanding cloud computing and related technologies [online]
+http://www.ibm.com/developerworks/websphere/techjournal/0904_amrhein/0904_amrhei
+n.html [last accessed 23 August 2013]
+[22] IBM (2010). IBM Survey: IT Professionals Predict Mobile and Cloud Technologies
+Will Dominate Enterprise Computing By 2015 [online]
+http://www-03.ibm.com/press/us/en/pressrelease/32674.wss [last accessed 23 August
+2013]
+[23] Turban E., Kyu J., King, D., McKay J., Marshall P. (2008). Electronic Commerce
+2008: A managerial perspective (5th Ed.). Pearson Prentice Hall. Upper Saddle River,
+NJ. ISBN 978-0-132-24331-5.
+[24] Goth, G (2007). Virtualization - Old Technology offers huge potential [online]
+http://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=4134016 [last accessed 23
+August 2013] 
+85
+[25] Microsoft (n.d.). Virtualization & Management [online]
+http://www.microsoft.com/en-us/server-cloud/datacenter/virtualization.aspx [last
+accessed 23 August 2013]
+[26] VMware, (n.d.b.). Virtualization Overview [online]
+http://www.VMware.com/virtualization/ [last accessed 23 August 2013]
+[27] Gartner (2010). Gartner Global IT Council for Cloud Services Outlines Rights and
+Responsibilities for Cloud Computing Services [online]
+http://www.gartner.com/newsroom/id/1398913 [last accessed 23 August 2013]
+[28] EU Directive 95/46/EC (1995). The Data Protection Directive [online]
+https://www.dataprotection.ie/viewdoc.asp?DocID=89 [last accessed 23 August 2013]
+[29] Amazon (n.d.b.). Amazon Global Infrastructure [online]
+http://aws.amazon.com/about-aws/globalinfrastructure/#reglink-eu [last accessed 23
+August 2013]
+[30] Cloud Security Alliance (2011). Security Guidance for Critical Areas of Focus in
+Cloud Computing v3.0 [online]
+https://cloudsecurityalliance.org/guidance/csaguide.v3.0.pdf [last accessed 23 August
+2013]
+[31] IBM, (n.d.c.). IBM SmartCloud. The cloud enterprises trust [online]
+http://www.ibm.com/cloud-computing/ca/en/ [last accessed 23 August 2013]
+[32] IBM, (n.d.d.). Build your private cloud with IBM SmartCloud Foundation [online]
+http://www.ibm.com/cloud-computing/ca/en/private-cloud.html [last accessed 23 August
+2013]
+[33] IBM (2012). IBM SmartCloud Success Stories [online] https://www01.ibm.com/software/success/cssdb.nsf/solutionareaL2VW?OpenView&Count=30&Rest
+rictToCategory=default_SmartCloudSolutions&cty=en_us [last accessed 23 August
+2013]
+[34] Amazon (n.d.c.). Amazon Virtual Private Cloud [online]
+http://aws.amazon.com/vpc/ [last accessed 23 August 2013]
+[35] Amazon (n.d.d.). Customer Success Powered by AWS Cloud [online]
+http://aws.amazon.com/solutions/case-studies/ [last accessed 23 August 2013]
+[36] Hutchinson, L (2012). ARS Technica. Amazon Web Services outage once again
+shows the reality behind “the cloud” [online] http://arstechnica.com/informationtechnology/2012/10/amazon-web-services-outage-once-again-shows-reality-behind-thecloud/ [last accessed 23rd March 2013] 
+86
+[37] VMware, (n.d.c.). Who Are We [online] http://www.vmware.com/company/
+[last accessed 23 August 2013]
+[38] VMware, (n.d.d.). Another VMWare Cloud [online] http://www.vmware.com/cloudcomputing/another-vmware-cloud [last accessed 23 August 2013]
+[39] Messmer, E. (2013). Gartner: Long hard climb to high level of cloud computing
+security, Network World [online] http://www.networkworld.com/news/2013/041013-
+gartner-cloud-security-268587.html?source=NWWNLE_nlt_daily_pm_2013-04-
+10&goback=.gde_3394596_member_231212944 [last accessed 23 August 2013]
+[40] Nolle, T. (2009). SearchCloudComputing, Network considerations in cloud
+computing [online] http://searchcloudcomputing.techtarget.com/tip/Networkconsiderations-in-cloud-computing [last accessed 23 August 2013]
+[41] Bütler, I. (n.d). Compass Security, VPN Threat Analysis [online]
+http://www.csnc.ch/misc/files/publications/VPNThreatAnalysis_CSNC.pdf [last accessed
+23 August 2013]
+[42] Jackson Higgins, K. (2011). VPN An Oft-Forgotten Attack Vector [online]
+http://www.darkreading.com/end-user/vpn-an-oft-forgotten-attack-vector/232300464
+[last accessed 23 August 2013]
+[43] Luminita, D.C.C. (2012). Academic World Education & Research Center, Using
+penetration testing to discover VPN security vulnerabilities [online] http://www.worldeducation-center.org/index.php/P-ITCS/article/viewArticle/685 [last accessed 4 August
+2013]
+[44] NIST (2001). Advanced Encryption Standard (AES) [online]
+http://csrc.nist.gov/publications/fips/fips197/fips-197.pdf [last accessed 23 August 2013]
+[45] NIST (1999). Data Encryption Standard (DES) [online]
+http://csrc.nist.gov/publications/fips/fips46-3/fips46-3.pdf [last accessed 23 August 2013]
+[46] Enders, R. (2012). SearchCloudComputing, How can incorrectly configuring VPN
+clients lead to a security breach? [online]
+http://searchenterprisewan.techtarget.com/answer/How-can-incorrectly-configuringVPN-clients-lead-to-a-security-breach [last accessed 23 August 2013]
+[47] Parmenter, T. (2011). SearchCloudComputing, VPN security breaches: How to
+avoid them [online] http://searchenterprisewan.techtarget.com/news/2240104696/VPNsecurity-breaches-How-to-avoid-them [last accessed 23 August 2013]
+[48] McClure, S. Scambray, J., Kurtz, G. (2012). Hacking Exposed ™ 7: Network
+Security Secrets & Solutions (7th Ed.). McGraw-Hill Osborne Media. ISBN 978-0-07-
+178028-5. 
+87
+[49] Amazon (n.d.e.). Amazon Virtual Private Cloud FAQs [online]
+http://aws.amazon.com/vpc/faqs/ [last accessed 23 August 2013]
+[50] NIST (2005). Guide to IPsec VPNs [online]
+http://csrc.nist.gov/publications/nistpubs/800-77/sp800-77.pdf [last accessed 23 August
+2013]
+[51] Saraswathi, S. and Yogesh, P. (2012). Mitigating Strategy to Shield the VPN Service
+From DoS Attack [online] http://airccse.org/journal/ijcis/papers/2212ijcis05.pdf [last
+accessed 23 August 2013]
+[52] Dunn, J. (2012). Tech World, Attack on airport VPN bypassed multi-factor
+authentication, security firm reports [online]
+http://news.techworld.com/security/3375826/attack-on-airport-vpn-bypassed-multifactor-authentication-security-firm-reports/ [last accessed 23 August 2013]
+[53] Thomas, A. (2012). Linux for You, IPsec VPN Penetration Testing with Backtrack
+Tools [online] http://www.linuxforu.com/2012/01/ipsec-vpn-penetration-testingbacktrack-tools/ [last accessed 23 August 2013]
+[54] The Internet Engineering Task Force (1998). Encapsulating Security Protocol
+[online] http://www.ietf.org/rfc/rfc2406.txt [last accessed 23 August 2013]
+[55] The Internet Engineering Task Force (1998). Internet Key Exchange [online]
+http://www.ietf.org/rfc/rfc2409.txt [last accessed 23 August 2013]
+[56] Kali (n.d.). Kali Linux [online] http://www.kali.org/ [last accessed 23 August 2013]
+[57] Rapid7 (n.d.). Metasploit [online] http://www.rapid7.com/products/metasploit/ [last
+accessed 23 August 2013]
+[58] GNS3 (n.d.).GNS3 [online] http://www.gns3.net/ [last accessed 23 August 2013]
+[59] Wireshark (n.d.). Wireshark [online] http://www.wireshark.org/about.html [last
+accessed 23 August 2013]
+[60] Nmap (n.d.). Nmap [online] http://nmap.org/ [last accessed 23 August 2013]
+[61] Ike Scan (n.d.). Ike Scan [online] http://www.nta-monitor.com/toolsresources/security-tools/ike-scan [last accessed 23 August 2013]
+[62] Ike Scan (n.d.b.). Ike Scan User Guide [online] http://www.ntamonitor.com/wiki/index.php/Ike-scan_User_Guide [last accessed 23 August 2013]
+[63] Iron Geek (n.d.). PSK-Crack [online]
+http://www.irongeek.com/i.php?page=backtrack-3-man/psk-crack [last accessed 23
+August 2013] 
+88
+[64] Amazon (2010). Extend Your IT Infrastructure with Amazon Virtual Private Cloud
+[online]
+http://d36cz9buwru1tt.cloudfront.net/Extend_your_IT_infrastructure_with_Amazon_VP
+C.pdf [last accessed 23 August 2013]
+[65] Amazon (n.d.f.). What is Amazon VPC? [online]
+http://docs.aws.amazon.com/AmazonVPC/latest/UserGuide/VPC_Introduction.html
+[last accessed 23 August 2013]
+[66] Genc, M. (2011). Murat Ahmet Genc's MyCSTubes.com Computer Science Tutorial
+Videos & Articles [online] http://www.mycstubes.com/ [last accessed 23 August 2013]
+[67] blindhog.net (2007). Cisco – How To configure an IPSec VPN [online]
+http://www.blindhog.net/cisco-how-to-configure-an-ipsec-vpn/ [last accessed 23 August
+2013]
+
+[68] ComputerNetworkingNotes.com (n.d.). How to configure extended access list on
+router [online] http://computernetworkingnotes.com/network-security-access-listsstandards-and-extended/extended-access-list.html [last accessed 23 August 2013]
+[69] Cisco (n.d.). Configuring IPSec and ISAKMP [online]
+http://www.cisco.com/en/US/docs/security/asa/asa72/configuration/guide/ike.html [last
+accessed 23 August 2013]
+
+[70] Kirsch, C. (2013). Rapid7 Community Forums. Free Metasploit Penetration Testing
+Lab In The Cloud [online]
+https://community.rapid7.com/community/metasploit/blog/2013/01/08/free-metasploitpenetration-testing-lab-in-the-cloud [last accessed 23 August 2013]
+[71] Amazon (2013). Amazon Web Services: Overview of Security Processes [online]
+http://media.amazonwebservices.com/pdf/AWS_Security_Whitepaper.pdf [last accessed
+23 August 2013]
+[72] Schectman, J. (2012). Wall Street Journal, Netflix Amazon Outage Shows ‘Any
+Company Can Fail’ [online] http://blogs.wsj.com/cio/2012/12/27/netflix-amazon-outageshows-any-company-can-fail/ [last accessed 23 August 2013]
+[73] Mitchel, B. (n.d). About.com, Internet Protocol Tutorial [online]
+http://compnetworking.about.com/od/tcpiptutorials/a/ipaddrnotation.htm [last accessed
+23 August 2013]
+[74] Amazon (n.d.). Penetration Testing [online]
+https://aws.amazon.com/security/penetration-testing/ [last accessed 23 August 2013] 
+89
+[75] Riley, T. & Moltzen, R. (2011). Learning by Doing: Action Research to Evaluate
+Provisions for Gifted and Talented Students. Education Resources Information Center
+[online] http://www.eric.ed.gov/PDFS/EJ935468.pdf [last accessed 23 August 2013]
+[76] Leedy, P.D. & Ormrod, J.E. (2012). Practical Research: Planning and Design (10th
+Ed.). Pearson. Upper Saddle River, NJ. ISBN 978-0-132-69324-0.
+[77] Mitchel, B. (n.d.b.). What is a TCP/IP Routing Table? [online]
+http://compnetworking.about.com/od/hardwarenetworkgear/f/routing_table.htm
+[last accessed 23 August 2013]
+[78] Govshteyn M. (2010). Secure Cloud Review. Cloud protection from DDoS attacks
+only slightly more effective than snake oil [online]
+http://securecloudreview.com/2010/12/cloud-protection-from-ddos-attacks-only-slightlymore-effective-than-snake-oil/ [last accessed 23 August 2013] 
+90
+APPENDIX A - Explanation of IPv4
+This appendix has been included as a reference for reading the section on IP static routing
+in the implementation chapter.
+Internet Protocol, or IP, was established in the 1970’s for use in the first computer
+networks. Since then it has formed the basis of what is now known as the Internet. An IP
+address is a method of locating a device on a network. The address consists of 4 bytes (32
+bits) known as octets. Most traditional computers connect to the Internet using IPv4 (IP
+version 4).
+For usability purposes, an IP address is generally referenced in human readable format,
+called ‘dotted decimal’. For example, a computer recognises IP address
+00001010 00000000 00000000 00000001, while humans read the same IP address as
+10.0.0.1. Each byte contains 8 bits and each octet in an IP address ranges in value from a
+minimum of 0.0.0.0 through 255.255.255.255. This represents a total of 232
+(4,294,967,296) possible IPv4 addresses. IPv6 has been established to address the
+problem of a finite number of IPv4 addresses availability. IPv6 will eventually become
+mandatory when IPv4 addressing is exhausted [73]. A description of IPv6 is beyond the
+scope of this thesis. All of the experiments outlined in this research are network-based.
+IPv4 addressing is referenced throughout.
+An IPv4 address can be accompanied by a subnet mask, which is used to represent the
+extended network of the device. Like an IP address, it is represented by 4 octets in ‘dotted
+decimal’ notation. For example, the binary subnet mask
+11111111 11111111 11111111 00000000 is read as 255.255.255.0 in dotted decimal
+notation. An extended network address includes a network address and a subnet address.
+For example 10.0.0.1, netmask 255.255.255.0 is written as 10.0.0.1/24. 
+91
+An IP routing table is a small in-memory database managed by the router’s software. It is
+used as a means of calculating the destinations of messages the router is responsible for
+forwarding [77]. 
+92
+APPENDIX B - SiteA VPN Gateway Router Configuration
+!
+!
+version 12.4
+service timestamps debug datetime msec
+service timestamps log datetime msec
+no service password-encryption
+!
+hostname SiteA
+!
+boot-start-marker
+boot-end-marker
+!
+!
+no aaa new-model
+memory-size iomem 5
+!
+!
+ip cef
+!
+!
+crypto isakmp policy 2
+ encr 3des
+ authentication pre-share
+ group 2
+crypto isakmp key abc123 address 172.16.1.1
+!
+!
+crypto ipsec transform-set TSA esp-3des esp-sha-hmac
+!
+crypto map CMPS1 1 ipsec-isakmp
+ description Tunnel to SiteB
+ set peer 172.16.1.1 
+93
+ set transform-set TSA
+ match address ToSiteB
+!
+!
+!
+!
+interface Loopback0
+ ip address 192.168.2.1 255.255.255.0
+!
+interface Serial0/0
+ ip address 10.1.1.1 255.255.255.0
+ serial restart-delay 0
+ crypto map CMPS1
+!
+interface Serial0/1
+ no ip address
+ shutdown
+ serial restart-delay 0
+!
+interface Serial0/2
+ no ip address
+ shutdown
+ serial restart-delay 0
+!
+interface Serial0/3
+ no ip address
+ shutdown
+ serial restart-delay 0
+!
+interface Ethernet1/0
+ ip address dhcp
+ half-duplex
+crypto map CMPS1
+! 
+94
+interface Ethernet2/0
+ ip address dhcp
+ half-duplex
+!
+interface Ethernet2/1
+ no ip address
+ shutdown
+ half-duplex
+!
+interface Ethernet2/2
+ no ip address
+ shutdown
+ half-duplex
+!
+interface Ethernet2/3
+ no ip address
+ shutdown
+ half-duplex
+!
+ip http server
+no ip http secure-server
+!
+ip route 0.0.0.0 0.0.0.0 Serial0/0
+ip route 172.16.1.0 255.255.255.0 10.1.1.2
+ip route 172.16.2.0 255.255.255.0 10.1.1.2
+!
+!
+!
+ip access-list extended ToSiteB
+ permit ip 192.168.2.0 0.0.0.255 172.16.2.0 0.0.0.255
+!
+!
+!
+control-plane 
+95
+!
+!
+!
+!
+!
+!
+!
+!
+!
+line con 0
+line aux 0
+line vty 0 4
+ login
+!
+!
+end 
+96
+APPENDIX C - SiteB VPN Gateway Router Configuration
+!
+!
+version 12.4
+service timestamps debug datetime msec
+service timestamps log datetime msec
+no service password-encryption
+!
+hostname SiteB
+!
+boot-start-marker
+boot-end-marker
+!
+!
+no aaa new-model
+memory-size iomem 5
+!
+!
+ip cef
+!
+!
+!
+!
+!
+!
+crypto isakmp policy 2
+ encr 3des
+ authentication pre-share
+ group 2
+crypto isakmp key abc123 address 10.1.1.1
+!
+!
+crypto ipsec transform-set TSB esp-3des esp-sha-hmac 
+97
+!
+crypto map CMPS2 1 ipsec-isakmp
+ description Tunnel to SiteA
+ set peer 10.1.1.1
+ set transform-set TSB
+ match address ToSiteA
+!
+!
+!
+!
+interface Loopback0
+ ip address 172.16.2.1 255.255.255.0
+!
+interface Serial0/0
+ ip address 172.16.1.1 255.255.255.0
+ serial restart-delay 0
+ crypto map CMPS2
+!
+interface Serial0/1
+ no ip address
+ shutdown
+ serial restart-delay 0
+!
+interface Serial0/2
+ no ip address
+ shutdown
+ serial restart-delay 0
+!
+interface Serial0/3
+ no ip address
+ shutdown
+ serial restart-delay 0
+!
+interface Ethernet1/0 
+98
+ no ip address
+ shutdown
+ half-duplex
+!
+ip http server
+no ip http secure-server
+!
+ip route 0.0.0.0 0.0.0.0 Serial0/0
+ip route 10.1.1.0 255.255.255.0 172.16.1.2
+ip route 192.168.2.0 255.255.255.0 172.16.1.2
+!
+!
+!
+ip access-list extended ToSiteA
+ permit ip 172.16.2.0 0.0.0.255 192.168.2.0 0.0.0.255
+!
+!
+!
+control-plane
+!
+!
+!
+!
+!
+!
+!
+line con 0
+line aux 0
+line vty 0 4
+ login
+!
+!
+end 
+99
+APPENDIX D - ISP Router Configuration
+!
+version 12.4
+service timestamps debug datetime msec
+service timestamps log datetime msec
+no service password-encryption
+!
+hostname ISP
+!
+boot-start-marker
+boot-end-marker
+!
+!
+no aaa new-model
+memory-size iomem 5
+!
+!
+ip cef
+!
+!
+!
+!
+!
+!
+!
+!
+!
+!
+!
+!
+!
+!
+! 
+100
+!
+!
+interface Serial0/0
+ ip address 10.1.1.2 255.255.255.0
+ serial restart-delay 0
+!
+interface Serial0/1
+ ip address 172.16.1.2 255.255.255.0
+ serial restart-delay 0
+!
+interface Serial0/2
+ no ip address
+ shutdown
+ serial restart-delay 0
+!
+interface Serial0/3
+ no ip address
+ shutdown
+ serial restart-delay 0
+!
+ip http server
+no ip http secure-server
+!
+!
+!
+!
+!
+!
+control-plane
+!
+!
+!
+!
+! 
+101
+!
+!
+!
+!
+line con 0
+line aux 0
+line vty 0 4
+!
+!
+end 
+102
+APPENDIX E – Contents of /etc/network/interfaces
+This configuration is required for setting up the bridge interface on Kali Linux.
+# This file describes the network interfaces available on your system
+# and how to activate them. For more information, see interfaces(5).
+# The loopback network interface
+auto lo
+iface lo inet loopback
+# The primary network interface
+allow hotplug eth0
+auto eth0
+iface eth0 inet manual
+# The tap interface
+pre-up tunctl -u root -t tap0
+auto br0
+iface br0 inet dhcp
+bridge-ports eth0 tap0
+pre-up ifconfig eth0 0.0.0.0 promisc up
+pre-up ifconfig tap0 0.0.0.0 promisc up
+pre-down brctl delif br0 eth0
+pre-down ifconfig eth0 down
+post-down tunctl -d tap0
+post-down brctl -delbr br0 
+103
