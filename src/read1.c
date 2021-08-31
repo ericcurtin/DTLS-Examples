@@ -17,6 +17,7 @@ static inline int get_fsize(int fd) {
     fprintf(stderr, "fstat error! [%s]\n", strerror(errno));
     return -1;
   }
+
   return sb.st_size;
 }
 

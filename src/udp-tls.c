@@ -9,6 +9,7 @@
 #include <sys/mman.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
+#include <sys/time.h>
 #include <sys/types.h>
 #include <unistd.h>
 
@@ -19,6 +20,8 @@
 #include <openssl/ssl.h>
 
 #define BUFFER_SIZE 16384
+//#define BUFFER_SIZE 1024
+//#define BUFFER_SIZE 8192
 #define COOKIE_SECRET_LENGTH 16
 
 static unsigned char cookie_secret[COOKIE_SECRET_LENGTH];
@@ -228,6 +231,14 @@ static inline int get_fsize(int fd) {
   return sb.st_size;
 }
 
+static double epoch_double() {
+  struct timeval tp;
+  gettimeofday(&tp, NULL);
+  const double now = tp.tv_sec + (tp.tv_usec / 1000000.0);
+
+  return now;
+}
+
 int main(int argc, char** argv) {
   unsigned char buffer[BUFFER_SIZE];
 
@@ -237,10 +248,9 @@ int main(int argc, char** argv) {
   }
 
   memset(&cliaddr, 0, sizeof(cliaddr));
-
   memset(&servaddr, 0, sizeof(servaddr));
   servaddr.sin_family = AF_INET;  // IPv4
-  servaddr.sin_addr.s_addr = INADDR_ANY;
+  servaddr.sin_addr.s_addr = inet_addr("127.0.0.1");
   servaddr.sin_port = htons(atoi(argv[3]));
 
   const bool is_client = argv[1][0] == 'c';
@@ -248,6 +258,7 @@ int main(int argc, char** argv) {
   const bool is_dtls = argv[1][1] == 'd';
   const bool is_udp = argv[1][2] == 'u';
   const bool is_sctp = argv[1][2] == 's';
+  const bool is_tcp = argv[1][2] == 't';
   SSL_CTX* ctx;
   if (is_dtls) {
     if (OpenSSL_version_num() != OPENSSL_VERSION_NUMBER) {
@@ -276,9 +287,7 @@ int main(int argc, char** argv) {
 
     if (is_server) {
       ctx = SSL_CTX_new(DTLS_server_method());
-    }
-
-    if (is_client) {
+    } else if (is_client) {
       ctx = SSL_CTX_new(DTLS_client_method());
     }
 
@@ -311,6 +320,9 @@ int main(int argc, char** argv) {
   if (is_sctp) {
     type = SOCK_STREAM;
     protocol = IPPROTO_SCTP;
+  } else if (is_tcp) {
+    type = SOCK_STREAM;
+    protocol = 0;
   }
 
   int fd = socket(AF_INET, type, protocol);
@@ -320,7 +332,7 @@ int main(int argc, char** argv) {
   }
 
   if (is_server) {
-    if (bind(fd, (const struct sockaddr*)&servaddr, sizeof(servaddr)) < 0) {
+    if (bind(fd, (struct sockaddr*)&servaddr, sizeof(servaddr)) < 0) {
       fprintf(stderr, "bind failed\n");
       exit(EXIT_FAILURE);
     }
@@ -337,13 +349,13 @@ int main(int argc, char** argv) {
         fprintf(stderr, "setsockopt failed1\n");
         exit(EXIT_FAILURE);
       }
+    }
 
-      fprintf(stderr, "listen failed1\n");
-      if (listen(fd, initmsg.sinit_max_instreams) < 0) {
+    if (is_sctp || is_tcp) {
+      if (listen(fd, 5) < 0) {
         fprintf(stderr, "listen failed\n");
         exit(EXIT_FAILURE);
       }
-      fprintf(stderr, "listen failed2\n");
     }
 
     socklen_t len = sizeof(cliaddr);
@@ -375,9 +387,13 @@ int main(int argc, char** argv) {
           exit(EXIT_FAILURE);
         }
       } else if (is_sctp) {
-        fprintf(stderr, "accept failed\n");
         conn_fd = accept(fd, (struct sockaddr*)NULL, NULL);
-        fprintf(stderr, "accept failed\n");
+        if (conn_fd < 0) {
+          fprintf(stderr, "accept failed\n");
+          exit(EXIT_FAILURE);
+        }
+      } else if (is_tcp) {
+        conn_fd = accept(fd, (struct sockaddr*)&cliaddr, &len);
         if (conn_fd < 0) {
           fprintf(stderr, "accept failed\n");
           exit(EXIT_FAILURE);
@@ -386,8 +402,8 @@ int main(int argc, char** argv) {
 
       int file = open(argv[4], O_RDWR);
       if (file == -1) {
-        fprintf(stderr, "Error: %s: file not found\n", argv[4]);
-        return (-1);
+        fprintf(stderr, "Error: %s: file not found on server\n", argv[4]);
+        return -1;
       }
 
       int fsize = get_fsize(file);
@@ -404,6 +420,7 @@ int main(int argc, char** argv) {
       int cnt = 0;
       addr[fsize] = (unsigned char)EOF;
       ++fsize;
+      const double now = epoch_double();
       for (unsigned char* addri = addr; addri <= &addr[fsize];
            addri += BUFFER_SIZE) {
         ssize_t to_write = addri + BUFFER_SIZE > &addr[fsize]
@@ -433,16 +450,17 @@ int main(int argc, char** argv) {
         } else if (is_sctp) {
           bytes_written = sctp_sendmsg(conn_fd, (unsigned char*)addri, to_write,
                                        NULL, 0, 0, 0, 0, 0, 0);
+        } else if (is_tcp) {
+          bytes_written = write(conn_fd, (unsigned char*)addri, to_write);
         }
 
-        printf("Write failed2 %ld != %ld, %s\n", bytes_written, to_write,
-               strerror(errno));
         if (bytes_written != to_write) {
           fprintf(stderr, "Write failed2 %ld != %ld, %s\n", bytes_written,
                   to_write, strerror(errno));
         }
         //        }
       }
+      printf("%f\n", epoch_double() - now);
 
       int err = munmap(addr, fsize);
       if (err) {
@@ -451,9 +469,7 @@ int main(int argc, char** argv) {
 
       close(file);
     }
-  }
-
-  if (is_client) {
+  } else if (is_client) {
     struct timeval tv;
     tv.tv_sec = 2;
     tv.tv_usec = 0;
@@ -465,15 +481,21 @@ int main(int argc, char** argv) {
       const char* hello = "hello";
       sendto(fd, (unsigned char*)hello, strlen(hello), MSG_CONFIRM,
              (const struct sockaddr*)&servaddr, sizeof(servaddr));
+    } else if (is_sctp || is_tcp) {
+      int ret = connect(fd, (struct sockaddr*)&servaddr, sizeof(servaddr));
+      if (ret < 0) {
+        fprintf(stderr, "connect failed\n");
+      }
     }
 
     int file = open(argv[4], O_WRONLY | O_CREAT | O_TRUNC, 0666);
     if (file == -1) {
-      fprintf(stderr, "Error: %s: file not found\n", argv[4]);
-      return (-1);
+      fprintf(stderr, "Error: %s: file not found on client\n", argv[4]);
+      return -1;
     }
 
     ssize_t n;
+    const double now = epoch_double();
     do {
       int len;
       if (is_udp) {
@@ -484,11 +506,16 @@ int main(int argc, char** argv) {
         int flags;
         n = sctp_recvmsg(fd, (unsigned char*)buffer, BUFFER_SIZE, NULL, 0,
                          &sndrcvinfo, &flags);
+      } else if (is_tcp) {
+        n = read(fd, (unsigned char*)buffer, BUFFER_SIZE);
       }
 
+      //   printf("'%c' ", buffer[n - 1]);
       if (buffer[n - 1] == (unsigned char)EOF) {
+//        printf("EOF\n");
         --n;
       } else if (n < 0) {
+//        printf("break\n");
         break;
       }
 
@@ -497,6 +524,9 @@ int main(int argc, char** argv) {
         fprintf(stderr, "Write failed %ld != %ld\n", bytes_written, n);
       }
     } while (n && buffer[n] != (unsigned char)EOF);
+
+    printf("%f\n", epoch_double() - now);
+    // printf("'%s' %ld\n", buffer, n);
 
     close(file);
   }
