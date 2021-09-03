@@ -1,4 +1,5 @@
 #include <arpa/inet.h>
+#include <error.h>
 #include <fcntl.h>
 #include <netinet/in.h>
 #include <netinet/sctp.h>
@@ -13,13 +14,19 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include <netinet/ip.h>
+#include <netinet/udp.h>
+//#include <netinet/socket.h>
+
 #include <openssl/bio.h>
 #include <openssl/err.h>
 #include <openssl/opensslv.h>
 #include <openssl/rand.h>
 #include <openssl/ssl.h>
 
-#define BUFFER_SIZE 16384
+#define BUFFER_SIZE_MAX 65507
+static int BUFFER_SIZE = 16384;
+
 //#define BUFFER_SIZE 1024
 //#define BUFFER_SIZE 8192
 #define COOKIE_SECRET_LENGTH 16
@@ -239,8 +246,25 @@ static double epoch_double() {
   return now;
 }
 
+static int __send_one(int fd, struct msghdr* msg, int flags) {
+  int ret;
+
+  ret = sendmsg(fd, msg, flags);
+  if (ret == -1 && (errno == EMSGSIZE || errno == ENOMEM || errno == EINVAL))
+    return false;
+  if (ret == -1)
+    error(1, errno, "sendmsg");
+  if (ret != msg->msg_iov->iov_len)
+    error(1, 0, "sendto: %d != %llu", ret,
+          (unsigned long long)msg->msg_iov->iov_len);
+  if (msg->msg_flags)
+    error(1, 0, "sendmsg: return flags 0x%x\n", msg->msg_flags);
+
+  return ret;
+}
+
 int main(int argc, char** argv) {
-  unsigned char buffer[BUFFER_SIZE];
+  unsigned char buffer[BUFFER_SIZE_MAX];
 
   if (argc < 2) {
     fprintf(stderr, "Error: usage: ./cat filename\n");
@@ -259,6 +283,7 @@ int main(int argc, char** argv) {
   const bool is_udp = argv[1][2] == 'u';
   const bool is_sctp = argv[1][2] == 's';
   const bool is_tcp = argv[1][2] == 't';
+  const bool is_gso = argv[1][3] == 'g';
   SSL_CTX* ctx;
   if (is_dtls) {
     if (OpenSSL_version_num() != OPENSSL_VERSION_NUMBER) {
@@ -337,6 +362,7 @@ int main(int argc, char** argv) {
       exit(EXIT_FAILURE);
     }
 
+    int gso_len;
     if (is_sctp) {
       struct sctp_initmsg initmsg = {
           .sinit_num_ostreams = 5,
@@ -349,6 +375,14 @@ int main(int argc, char** argv) {
         fprintf(stderr, "setsockopt failed1\n");
         exit(EXIT_FAILURE);
       }
+    } else if (is_gso) {
+      BUFFER_SIZE = BUFFER_SIZE_MAX;
+      gso_len = BUFFER_SIZE - (sizeof(struct iphdr) + sizeof(struct udphdr));
+      //      if (setsockopt(fd, SOL_UDP, UDP_SEGMENT, &gso_len,
+      //      sizeof(gso_len))) {
+      //        fprintf(stderr, "setsockopt udp segment\n");
+      //        exit(EXIT_FAILURE);
+      //      }
     }
 
     if (is_sctp || is_tcp) {
@@ -418,14 +452,23 @@ int main(int argc, char** argv) {
       }
 
       int cnt = 0;
-      addr[fsize] = (unsigned char)EOF;
-      ++fsize;
+      //      addr[fsize] = (unsigned char)EOF;
+      ++fsize;  // final char must be EOF
       const double now = epoch_double();
-      for (unsigned char* addri = addr; addri <= &addr[fsize];
-           addri += BUFFER_SIZE) {
-        ssize_t to_write = addri + BUFFER_SIZE > &addr[fsize]
-                               ? &addr[fsize] - addri
-                               : BUFFER_SIZE;
+      //      for (unsigned char* addri = addr; addri <= &addr[fsize];
+      //           addri += BUFFER_SIZE) {
+      unsigned char* addri = addr;
+      for (int i = 0; i < fsize; i += BUFFER_SIZE) {
+        ssize_t to_write = BUFFER_SIZE;
+        addri = &addr[i];
+        if (fsize - i <= BUFFER_SIZE) {  // equal to case important also for EOF
+          to_write = fsize - i;
+          // EOF char not present, hence -1
+          memcpy(buffer, (unsigned char*)addri, to_write - 1);
+          //          printf("send EOF\n");
+          buffer[to_write - 1] = EOF;
+          addri = buffer;
+        }
 
 #if 0
         if (to_write < BUFFER_SIZE) {
@@ -444,9 +487,63 @@ int main(int argc, char** argv) {
         // const ssize_t bytes_written = write(STDOUT_FILENO, addri, to_write);
         ssize_t bytes_written;
         if (is_udp) {
-          bytes_written =
-              sendto(fd, (unsigned char*)addri, to_write, MSG_CONFIRM,
-                     (const struct sockaddr*)&cliaddr, len);
+#if 0
+            ssize_t rf =
+                recvfrom(fd, (unsigned char*)buffer, BUFFER_SIZE, MSG_WAITALL,
+                         (struct sockaddr*)&cliaddr, &len);
+            if (rf < 1) {
+              fprintf(stderr, "recvfrom failed %ld\n", rf);
+              exit(EXIT_FAILURE);
+            }
+          }
+#endif
+
+          if (is_gso) {
+            char control[CMSG_SPACE(sizeof(uint16_t))] = {0};
+            struct msghdr msg = {0};
+            struct iovec iov = {0};
+            struct cmsghdr* cm;
+
+            iov.iov_base = (unsigned char*)addri;
+            iov.iov_len = to_write;
+
+            msg.msg_iov = &iov;
+            msg.msg_iovlen = 1;
+
+            msg.msg_name = &cliaddr;
+            msg.msg_namelen = len;
+
+            //#if 0
+            if (gso_len) {  //&& !cfg_do_setsockopt) {
+              msg.msg_control = control;
+              msg.msg_controllen = sizeof(control);
+
+              cm = CMSG_FIRSTHDR(&msg);
+              cm->cmsg_level = SOL_UDP;
+              cm->cmsg_type = UDP_SEGMENT;
+              cm->cmsg_len = CMSG_LEN(sizeof(uint16_t));
+              *((uint16_t*)CMSG_DATA(cm)) = gso_len;
+            }
+            //#endif
+
+#if 0
+          /* If MSG_MORE, send 1 byte followed by remainder */
+          if (cfg_do_msgmore && len > 1) {
+            iov.iov_len = 1;
+            if (!__send_one(fd, &msg, MSG_MORE))
+              error(1, 0, "send 1B failed");
+
+            iov.iov_base++;
+            iov.iov_len = len - 1;
+          }
+#endif
+
+            bytes_written = __send_one(fd, &msg, 0);
+          } else {
+            bytes_written =
+                sendto(fd, (unsigned char*)addri, to_write, MSG_CONFIRM,
+                       (const struct sockaddr*)&cliaddr, len);
+          }
         } else if (is_sctp) {
           bytes_written = sctp_sendmsg(conn_fd, (unsigned char*)addri, to_write,
                                        NULL, 0, 0, 0, 0, 0, 0);
@@ -473,14 +570,14 @@ int main(int argc, char** argv) {
     }
   } else if (is_client) {
     struct timeval tv;
-    tv.tv_sec = 2;
-    tv.tv_usec = 0;
+    tv.tv_sec = is_gso ? 0 : 2;
+    tv.tv_usec = is_gso ? 1000 : 0;
     if (setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv)) < 0) {
       perror("Error");
     }
 
     if (is_udp) {
-      const char* hello = "hello";
+      const char* hello = "h";
       sendto(fd, (unsigned char*)hello, strlen(hello), MSG_CONFIRM,
              (const struct sockaddr*)&servaddr, sizeof(servaddr));
     } else if (is_sctp || is_tcp) {
@@ -501,6 +598,11 @@ int main(int argc, char** argv) {
     do {
       int len;
       if (is_udp) {
+#if 0
+        const char* hello = "h";
+        sendto(fd, (unsigned char*)hello, strlen(hello), MSG_CONFIRM,
+               (const struct sockaddr*)&servaddr, sizeof(servaddr));
+#endif
         n = recvfrom(fd, (unsigned char*)buffer, BUFFER_SIZE, MSG_WAITALL,
                      (struct sockaddr*)&servaddr, &len);
       } else if (is_sctp) {
@@ -514,10 +616,10 @@ int main(int argc, char** argv) {
 
       //   printf("'%c' ", buffer[n - 1]);
       if (buffer[n - 1] == (unsigned char)EOF) {
-//        printf("EOF\n");
+        //        printf("EOF\n");
         --n;
-      } else if (n < 0) {
-//        printf("break\n");
+      } else if (n <= 0) {
+        fprintf(stderr, "recv %ld bytes\n", n);
         break;
       }
 
