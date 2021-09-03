@@ -457,6 +457,8 @@ int main(int argc, char** argv) {
         if (bytes_written != to_write) {
           fprintf(stderr, "Write failed2 %ld != %ld, %s\n", bytes_written,
                   to_write, strerror(errno));
+          close(file);
+          return 1;
         }
         //        }
       }
