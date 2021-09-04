@@ -284,6 +284,7 @@ int main(int argc, char** argv) {
   const bool is_sctp = argv[1][2] == 's';
   const bool is_tcp = argv[1][2] == 't';
   const bool is_gso = argv[1][3] == 'g';
+  const bool is_handshake_test = argv[1][3] == 'h';
   SSL_CTX* ctx;
   if (is_dtls) {
     if (OpenSSL_version_num() != OPENSSL_VERSION_NUMBER) {
@@ -394,7 +395,7 @@ int main(int argc, char** argv) {
 
     socklen_t len = sizeof(cliaddr);
     while (1) {
-      int conn_fd;
+      int conn_fd = 0;
       if (is_dtls) {
         /* Create BIO */
         BIO* bio = BIO_new_dgram(fd, BIO_NOCLOSE);
@@ -451,7 +452,6 @@ int main(int argc, char** argv) {
         fprintf(stderr, "mmap failed, %s\n", strerror(errno));
       }
 
-      int cnt = 0;
       //      addr[fsize] = (unsigned char)EOF;
       ++fsize;  // final char must be EOF
       const double now = epoch_double();
@@ -485,7 +485,7 @@ int main(int argc, char** argv) {
 #endif
 
         // const ssize_t bytes_written = write(STDOUT_FILENO, addri, to_write);
-        ssize_t bytes_written;
+        ssize_t bytes_written = 0;
         if (is_udp) {
 #if 0
             ssize_t rf =
@@ -581,9 +581,17 @@ int main(int argc, char** argv) {
       sendto(fd, (unsigned char*)hello, strlen(hello), MSG_CONFIRM,
              (const struct sockaddr*)&servaddr, sizeof(servaddr));
     } else if (is_sctp || is_tcp) {
+      double now;
+      if (is_handshake_test) {
+        now = epoch_double();
+      }
+
       int ret = connect(fd, (struct sockaddr*)&servaddr, sizeof(servaddr));
       if (ret < 0) {
         fprintf(stderr, "connect failed\n");
+      } else if (is_handshake_test) {
+        printf("%f\n", epoch_double() - now);
+        return 0;
       }
     }
 
@@ -593,10 +601,10 @@ int main(int argc, char** argv) {
       return -1;
     }
 
-    ssize_t n;
+    ssize_t n = 0;
     const double now = epoch_double();
     do {
-      int len;
+      socklen_t len;
       if (is_udp) {
 #if 0
         const char* hello = "h";
